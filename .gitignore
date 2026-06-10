@@ -1,0 +1,10 @@
+# Game content is copyrighted — never commit it. The repo ships tools only;
+# the user supplies their own legally obtained copy (Unleashed Recompiled model).
+extracted/
+build/
+*.SIT
+*.sit
+__pycache__/
+*.pyc
+.cache/
+compile_commands.json
