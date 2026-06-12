@@ -1,0 +1,349 @@
+env8582=3  rooms=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25]
+-- room 1  L=22 R=23 U=0 D=0
+   WAL  WAL  WAL  WAL  WAL  WAL  WAL  WAL  WAL  WAL 
+   WAL  bpT  ...  ...  ...  ...  ...  WAL  WAL  WAL 
+   flr  bpB  trc  dr1  dr2  trc  p33  PLT  pil  flr 
+   door  (3,2) anim=0000
+   door  (4,2) anim=0000
+   plate (7,2) ev59 anim=023b
+-- room 2  L=23 R=9 U=0 D=0
+   WAL  bpT  ...  ...  WAL  WAL  WAL  WAL  WAL  WAL 
+   bpT  bpB  lse  p33  PLT  GAT  ...  GAT  PLT  pil 
+   bpB  pil  PLT  WAL  WAL  spk  flr  WAL  WAL  WAL 
+   loose (2,1) ev128 anim=0080
+   plate (4,1) ev6 anim=0206
+   gate  (5,1) pos=01c8
+   gate  (7,1) pos=0c00
+   plate (8,1) ev21 anim=0315
+   plate (2,2) ev62 anim=033e
+-- room 3  L=9 R=4 U=0 D=0
+   WAL  ...  ...  ...  ...  ...   27  ...  PLT  flr 
+   pil  ...  ...  ...  ...  ...  ...  ...  ...  flr 
+   WAL  flr  flr  c18  flr  flr  flr  flr  flr  WAL 
+   plate (8,0) ev17 anim=8011
+-- room 4  L=3 R=7 U=0 D=5
+   flr  p33  ...  ...  ...  PLT  p33  trc  PLT  flr 
+   flr  bpT  ...  ...  ...  WAL  WAL  WAL  WAL  WAL 
+   WAL  bpB  flr  ...  ...  ...  WAL  WAL  WAL  WAL 
+   plate (5,0) ev46 anim=032e
+   plate (8,0) ev45 anim=032d
+-- room 5  L=0 R=6 U=4 D=8
+   WAL  WAL  WAL  ...  ...  ...  pot  WAL  WAL  WAL 
+   WAL  WAL  bpT  ...  ...  ...  WAL  flr  flr  WAL 
+   WAL  WAL  bpB  ...  ...  ...  ...  WAL  WAL  WAL 
+-- room 6  L=5 R=11 U=7 D=25
+   WAL  WAL  ...  bpT  ...  pot  bpT  ...  flr  pil 
+   WAL  WAL  ...  bpB  trc  WAL  bpB  trc  ...  WAL 
+   WAL  WAL  ...  WAL  WAL  WAL  WAL  pil  ...  WAL 
+-- room 7  L=4 R=10 U=0 D=6
+   trc  bpT  WAL  WAL  WAL  WAL  WAL  bpT  WAL  WAL 
+   WAL  bpB  ...  GAT  trc  p33  PLT  bpB  pot  flr 
+   WAL  WAL  ...  WAL  WAL  WAL  WAL  WAL  WAL  WAL 
+   gate  (3,1) pos=0300
+   plate (6,1) ev74 anim=014a
+-- room 8  L=0 R=25 U=5 D=13
+   WAL  WAL  WAL  ...  ...  ...  pot  WAL  WAL  WAL 
+   WAL  WAL  WAL  trc  flr  ...  WAL  WAL  WAL  WAL 
+   WAL  WAL  WAL  ...  WAL  ...  ...  ...  WAL  WAL 
+-- room 9  L=2 R=3 U=0 D=0
+   WAL  ...  ...  bpT  WAL  WAL  WAL  WAL  WAL  WAL 
+   pil  p33  lse  bpB  trc  p33  lse  pil  trc  pil 
+   WAL  WAL  PLT  WAL  WAL  WAL  PLT  WAL  WAL  WAL 
+   loose (6,1) ev128 anim=0c80
+   plate (2,2) ev63 anim=053f
+   plate (6,2) ev67 anim=0a43
+-- room 10  L=7 R=12 U=0 D=11
+   ...  ...  ...  ...  ...  ...  ...  ...  ...  WAL 
+   flr   44   44   44   44   44   44   44   44  PLT 
+   WAL  ...  ...  ...  ...  ...  ...  ...  WAL  WAL 
+   plate (9,1) ev71 anim=8047
+-- room 11  L=6 R=18 U=10 D=20
+   trc  trc  PLT  ...  flr  ...  ...  ...  ...  GAT 
+   WAL  WAL  WAL  deb  ...  ...  ...  lse  trc  WAL 
+   WAL  flr  WAL  WAL  ...  ...  ...  ...  WAL  WAL 
+   plate (2,0) ev58 anim=003a
+   gate  (9,0) pos=0100
+-- room 12  L=10 R=0 U=21 D=18
+   ...  bpT  ...  ...  flr  lse  WAL  WAL  WAL  WAL 
+   trc  bpB  ...  ...  ...  flr  ...  WAL  WAL  WAL 
+   WAL  WAL  ...  ...  ...  ...  flr  ...  bpT  WAL 
+-- room 13  L=0 R=14 U=8 D=19
+   WAL  WAL  WAL  ...  WAL  flr  ...  ...  ...  WAL 
+   WAL  WAL  WAL  lse  WAL  WAL  ...  flr  trc  flr 
+   WAL  WAL  WAL  ...  WAL  WAL  ...  WAL  WAL  WAL 
+-- room 14  L=13 R=15 U=25 D=0
+   WAL  WAL  WAL  WAL  bpT  ...  WAL  WAL  bpT  WAL 
+   trc  PLT  GAT  flr  bpB  ...  ...  PLT  bpB  flr 
+   WAL  WAL  spk  p33  pil  flr  pot  WAL  WAL  WAL 
+   plate (1,1) ev30 anim=071e
+   gate  (2,1) pos=0300
+   plate (7,1) ev34 anim=0122
+-- room 15  L=14 R=16 U=20 D=0
+   WAL  WAL  bpT  deb  flr  flr  deb  ...  WAL  WAL 
+   trc  flr  bpB  bpT  ...  ...  pil  deb  ...  bpT 
+   WAL  WAL  WAL  bpB  bc1  bc2  WAL  spk  flr  bpB 
+-- room 16  L=15 R=0 U=17 D=0
+   WAL  WAL  WAL  bpT  flr  ...  ...  bpT  flr  WAL 
+   WAL  WAL  bpT  bpB  bpT  ...  ...  bpB  WAL  WAL 
+   trc  flr  bpB  WAL  bpB  bc1  bc2  WAL  WAL  WAL 
+-- room 17  L=20 R=0 U=18 D=16
+   GAT  flr  bpT  flr  ...  ...  ...  flr  lse  WAL 
+   WAL  WAL  bpB  bpT  ...  ...  flr  bpT  PLT  WAL 
+   WAL  WAL  WAL  bpB  ...  ...  ...  bpB  WAL  WAL 
+   gate  (0,0) pos=0300
+   plate (8,1) ev75 anim=004b
+-- room 18  L=11 R=0 U=12 D=17
+   trc  lse  flr  ...  ...  ...  bpT  flr  bpB  WAL 
+   WAL  ...  bpT  ...  ...  PLT  bpB  ...  WAL  WAL 
+   spk  p33  bpB  ...  flr  WAL  WAL  ...  WAL  WAL 
+   plate (5,1) ev40 anim=0028
+-- room 19  L=0 R=0 U=13 D=0
+   WAL  WAL  WAL  ...  WAL  WAL  ...  WAL  WAL  WAL 
+   WAL  WAL  WAL  flr  WAL  WAL  ...  WAL  WAL  WAL 
+   WAL  WAL  WAL  WAL  flr  flr  deb  flr  WAL  WAL 
+-- room 20  L=25 R=17 U=11 D=15
+   GAT  trc  flr  ...  ...  ...  PLT  PLT  lse  pil 
+   spk  flr  bpT  ...  lse  lse  WAL  WAL  PLT  WAL 
+   WAL  WAL  bpB  ...  ...  ...  ...  WAL  WAL  WAL 
+   gate  (0,0) pos=02c8
+   plate (6,0) ev57 anim=0039
+   plate (7,0) ev52 anim=0034
+   loose (4,1) ev128 anim=0080
+   plate (8,1) ev53 anim=0a35
+-- room 21  L=0 R=0 U=0 D=12
+   WAL  WAL  WAL  WAL  WAL  WAL  WAL  WAL  WAL  WAL 
+   WAL  flr  flr  flr  WAL  ...  pot  WAL  WAL  WAL 
+   WAL  WAL  WAL  ...  ...  pot  WAL  WAL  WAL  WAL 
+-- room 22  L=0 R=1 U=0 D=0
+   WAL  lse  flr  ...  ...  bpT  WAL  WAL  WAL  WAL 
+   WAL  ...  pil  lse  lse  bpB  PLT  bpT  WAL  WAL 
+   WAL  trc  pil  flr  pot  WAL  WAL  bpB  trc  GAT 
+   loose (4,1) ev128 anim=0080
+   plate (6,1) ev70 anim=0246
+   gate  (9,2) pos=0300
+-- room 23  L=1 R=2 U=0 D=0
+   WAL  bpT  WAL  WAL  WAL  WAL  WAL  WAL  WAL  WAL 
+   bpT  bpB  flr  ...  ...  ...  bpT  ...  WAL  WAL 
+   bpB  WAL  spk  flr  trc  flr  bpB  bc1  bc2  pil 
+-- room 24  L=0 R=0 U=0 D=0
+   ...  ...  ...  ...  ...  ...  ...  WAL  WAL  WAL 
+   ...  ...  ...  ...  ...  ...  ...  WAL  WAL  WAL 
+   ...  ...  ...  ...  ...  ...  ...  WAL  flr  flr 
+-- room 25  L=8 R=20 U=6 D=14
+   WAL  WAL  ...  pil  flr  WAL  spk  pil  trc  flr 
+   WAL  WAL  ...  WAL  WAL  WAL  WAL  WAL  WAL  WAL 
+   WAL  WAL  flr  flr  WAL  WAL  WAL  WAL  WAL  WAL 
+== events (non-empty) ==
+  ev  1: cnt=  0 f6=-003 next=2  -> r7(6,2)=WAL -> ev2:r10(8,1)=44
+  ev  2: cnt=  0 f6=0001  -> r10(8,1)=44
+  ev  4: cnt=  0 f6=-003  -> r2(4,2)=WAL
+  ev  5: cnt=  0 f6=-003  -> r8(9,2)=WAL
+  ev  6: cnt=  0 f6=-003 next=20  -> r2(5,1)=GAT -> ev20:r2(7,1)=GAT -> ev27:r2(3,1)=p33
+  ev 10: cnt=  0 f6=-003 next=11  -> r5(9,2)=WAL -> ev11:r8(9,2)=WAL
+  ev 11: cnt=  0 f6=000a  -> r8(9,2)=WAL
+  ev 16: cnt=  0 f6=-003  -> r5(9,0)=WAL
+  ev 17: cnt=  0 f6=-003  -> r3(6,0)=27
+  ev 20: cnt= -1 f6=0006 next=27  -> r2(7,1)=GAT -> ev27:r2(3,1)=p33
+  ev 21: cnt=  0 f6=-003 next=22  -> r2(5,1)=GAT -> ev22:r2(7,1)=GAT
+  ev 22: cnt= -1 f6=0015  -> r2(7,1)=GAT
+  ev 27: cnt=  0 f6=0014  -> r2(3,1)=p33
+  ev 30: cnt=  0 f6=-003  -> r14(2,1)=GAT
+  ev 34: cnt= -1 f6=-003  -> r14(3,2)=p33
+  ev 40: cnt=  0 f6=-003  -> r18(1,2)=p33
+  ev 45: cnt=  0 f6=-003 next=72  -> r4(6,0)=p33 -> ev72:r7(3,1)=GAT
+  ev 46: cnt=  0 f6=-003  -> r4(1,0)=p33
+  ev 52: cnt=  0 f6=-003  -> r11(9,0)=GAT
+  ev 53: cnt= -1 f6=-003  -> r20(0,0)=GAT
+  ev 57: cnt=  0 f6=-003  -> r17(0,0)=GAT
+  ev 58: cnt=  0 f6=-003  -> r11(9,0)=GAT
+  ev 59: cnt=  0 f6=-003  -> r1(6,2)=p33
+  ev 62: cnt=  0 f6=-003  -> r2(7,1)=GAT
+  ev 63: cnt=  0 f6=-003 next=64  -> r9(1,1)=p33 -> ev64:r9(5,1)=p33
+  ev 64: cnt= -1 f6=003f  -> r9(5,1)=p33
+  ev 67: cnt=  0 f6=-003 next=68  -> r9(5,1)=p33 -> ev68:r22(9,2)=GAT
+  ev 68: cnt= -1 f6=0043  -> r22(9,2)=GAT
+  ev 70: cnt=  0 f6=-003  -> r22(9,2)=GAT
+  ev 71: cnt=  0 f6=-003  -> r7(3,1)=GAT
+  ev 72: cnt= -1 f6=002d  -> r7(3,1)=GAT
+  ev 74: cnt=  0 f6=-003  -> r7(5,1)=p33
+  ev 75: cnt=  0 f6=-003  -> r17(0,0)=GAT
+  ev 76: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev 77: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev 78: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev 79: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev 80: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev 81: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev 82: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev 83: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev 84: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev 85: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev 86: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev 87: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev 88: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev 89: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev 90: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev 91: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev 92: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev 93: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev 94: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev 95: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev 96: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev 97: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev 98: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev 99: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev100: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev101: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev102: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev103: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev104: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev105: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev106: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev107: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev108: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev109: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev110: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev111: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev112: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev113: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev114: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev115: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev116: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev117: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev118: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev119: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev120: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev121: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev122: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev123: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev124: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev125: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev126: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev127: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev128: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev129: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev130: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev131: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev132: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev133: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev134: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev135: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev136: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev137: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev138: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev139: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev140: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev141: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev142: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev143: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev144: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev145: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev146: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev147: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev148: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev149: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev150: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev151: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev152: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev153: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev154: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev155: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev156: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev157: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev158: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev159: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev160: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev161: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev162: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev163: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev164: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev165: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev166: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev167: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev168: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev169: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev170: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev171: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev172: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev173: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev174: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev175: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev176: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev177: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev178: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev179: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev180: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev181: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev182: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev183: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev184: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev185: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev186: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev187: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev188: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev189: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev190: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev191: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev192: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev193: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev194: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev195: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev196: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev197: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev198: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev199: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev200: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev201: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev202: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev203: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev204: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev205: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev206: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev207: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev208: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev209: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev210: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev211: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev212: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev213: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev214: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev215: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev216: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev217: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev218: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev219: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev220: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev221: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev222: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev223: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev224: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev225: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev226: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev227: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev228: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev229: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev230: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev231: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev232: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev233: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev234: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev235: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev236: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev237: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev238: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev239: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev240: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev241: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev242: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev243: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev244: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev245: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev246: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev247: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev248: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev249: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev250: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev251: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev252: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev253: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev254: cnt= -1 f6=-001 next=-1  -> room=-1
+  ev255: cnt= -1 f6=-001 next=-1  -> room=-1
