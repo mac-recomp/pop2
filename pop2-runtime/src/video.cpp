@@ -1034,6 +1034,12 @@ void video_get_mouse(int16_t* h, int16_t* v) {
     *v = s_mouse_v;
 }
 
+// Inject an event the guest posted (PostEvent/PPostEvent) into the same queue
+// GetNextEvent/WaitNextEvent drain — see push_event above.
+void video_post_event(uint16_t what, uint32_t message) {
+    push_event(what, message);
+}
+
 // ---- audio sink: SDL queued audio fed by the synth's double buffers ----
 namespace {
 SDL_AudioDeviceID s_adev = 0;

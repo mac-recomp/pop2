@@ -852,6 +852,18 @@ static void os_trap(Cpu& cpu, uint16_t op) {
         return;
     }
     case 0xA032: cpu.d[0] = 0; return;                                   // FlushEvents
+    case 0xA12F: {  // PPostEvent: A0.W = event code, D0.L = event message;
+        // returns A0 = EvQElPtr, D0 = OSErr. Register convention per the recomp
+        // call site (seg02 f2_32xx). PoP2 posts an event on a mouse click here;
+        // leaving it unimplemented abort()ed the whole instance. We deliver the
+        // event through the runtime queue and hand back a scratch EvQEl the
+        // caller fills in (it is never read back — video_next_event synthesizes
+        // when/where/modifiers).
+        video_post_event(uint16_t(cpu.a[0]), cpu.d[0]);
+        cpu.a[0] = EVQEL_SCRATCH;
+        cpu.d[0] = 0;  // noErr
+        return;
+    }
     case 0xA03B: {  // Delay: A0 = ticks
         uint32_t t = cpu.a[0];
 #ifdef __EMSCRIPTEN__

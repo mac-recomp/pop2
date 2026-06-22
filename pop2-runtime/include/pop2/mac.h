@@ -9,6 +9,10 @@ namespace pop2 {
 inline constexpr uint32_t LOWMEM_TOP   = 0x003000;
 inline constexpr uint32_t STACK_TOP    = 0x070000;
 inline constexpr uint32_t A5_BASE      = 0x080000;
+// Scratch EvQEl returned by PPostEvent: lives in the unused gap between the A5
+// world and the first CODE segment (0x200000). The caller fills it in; we never
+// read it back (the event itself is delivered through the runtime event queue).
+inline constexpr uint32_t EVQEL_SCRATCH = 0x1F0000;
 inline constexpr uint32_t MP_BASE      = 0x3F0000;  // master pointers
 inline constexpr uint32_t MP_END       = 0x400000;
 inline constexpr uint32_t HEAP_BASE    = 0x400000;
@@ -123,6 +127,7 @@ void video_get_keys(uint8_t out[16]);
 bool video_next_event(uint16_t mask, MacEvent* out, bool remove = true);
 bool video_button();
 void video_get_mouse(int16_t* h, int16_t* v);
+void video_post_event(uint16_t what, uint32_t message);  // PostEvent/PPostEvent sink
 
 extern int g_interrupt_depth;   // nonzero inside guest interrupt callbacks
 
