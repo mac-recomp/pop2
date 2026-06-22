@@ -1147,6 +1147,12 @@ extern "C" EMSCRIPTEN_KEEPALIVE int pop2_dbg_fb(int x, int y) {
 extern "C" EMSCRIPTEN_KEEPALIVE unsigned pop2_dbg_pal(int i) {
     return (i >= 0 && i < 256) ? s_pal[i] : 0;          // ARGB
 }
+extern "C" EMSCRIPTEN_KEEPALIVE int pop2_dbg_peek16(unsigned addr) {
+    return int16_t(mem_read16(addr & 0xFFFFFF));        // signed 16-bit guest read
+}
+extern "C" EMSCRIPTEN_KEEPALIVE unsigned pop2_dbg_peek32(unsigned addr) {
+    return mem_read32(addr & 0xFFFFFF);                 // 32-bit guest read (pointers)
+}
 
 // Inject a Cmd+<letter> menu command straight into the game's event queue,
 // bypassing the browser (which would eat real Cmd+S/O/N). The game's loop sees

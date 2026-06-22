@@ -22,7 +22,13 @@ void watch_hit(uint32_t addr, uint32_t val) {
     static uint32_t s_last = 0xDEADBEEF;
     if (val == s_last) return;          // change-only: block copies rewrite same value
     s_last = val;
-    if (s_hits >= 40) return;
+    // POP2_WATCH_NZ: only log when the watched 16-bit word is non-zero after the
+    // write (filters per-tick zero-rewrites of a pulsing field, e.g. an HP delta).
+    static const bool nz = std::getenv("POP2_WATCH_NZ") != nullptr;
+    if (nz && uint16_t((g_mem[g_watch_addr] << 8) | g_mem[g_watch_addr + 1]) == 0) return;
+    static const int cap = std::getenv("POP2_WATCH_CAP")
+                               ? std::atoi(std::getenv("POP2_WATCH_CAP")) : 40;
+    if (s_hits >= cap) return;
     s_hits++;
     std::fprintf(stderr, "[watch] write %08X to %06X t=%u — host bt:\n", val, addr,
                  ticks_live());

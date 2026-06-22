@@ -472,6 +472,18 @@ static int read_save_level(const fs::path& p) {
 // First saved-game file in the game root, or "". POP2_OPEN_SAVE=<leaf name>
 // picks that save when several exist.
 std::string fs_first_pop2_save() {
+    // Test hook: POP2_OPEN_SEQ="a;b;c" hands back successive saves on successive
+    // SFGetFile calls — reproduces load-then-load-without-reload scenarios.
+    if (const char* seq = std::getenv("POP2_OPEN_SEQ")) {
+        static int idx = 0;
+        std::string s = seq; size_t p = 0;
+        for (int i = 0; ; i++) {
+            size_t q = s.find(';', p);
+            std::string part = (q == std::string::npos) ? s.substr(p) : s.substr(p, q - p);
+            if (i == idx || q == std::string::npos) { idx++; return part; }
+            p = q + 1;
+        }
+    }
     const char* want = std::getenv("POP2_OPEN_SAVE");
     std::error_code ec;
     std::string first;
