@@ -1074,6 +1074,29 @@ void video_post_event(uint16_t what, uint32_t message) {
     push_event(what, message);
 }
 
+#ifdef __EMSCRIPTEN__
+// On-screen touch controls call this (Module._pop2_touch_key(vk, down)) to
+// press/release a Mac virtual key: arrows 0x7B-0x7E, Shift 0x38, Esc 0x35.
+// Mirrors the keyboard path — sets the KeyMap bit the game polls for held
+// movement, and queues a key event for discrete presses.
+extern "C" EMSCRIPTEN_KEEPALIVE void pop2_touch_key(int vk_, int down) {
+    uint8_t vk = uint8_t(vk_);
+    int ch = 0;
+    switch (vk) {
+        case 0x7B: ch = 28; break; case 0x7C: ch = 29; break;   // left / right
+        case 0x7E: ch = 30; break; case 0x7D: ch = 31; break;   // up / down
+        case 0x35: ch = 27; break; case 0x24: ch = 13; break;   // esc / return
+    }
+    if (down) {
+        s_keymap[vk >> 3] |= uint8_t(1u << (vk & 7));
+        push_event(3, uint32_t(vk << 8) | uint32_t(ch));
+    } else {
+        s_keymap[vk >> 3] &= uint8_t(~(1u << (vk & 7)));
+        push_event(4, uint32_t(vk << 8) | uint32_t(ch));
+    }
+}
+#endif
+
 // ---- audio sink: SDL queued audio fed by the synth's double buffers ----
 namespace {
 SDL_AudioDeviceID s_adev = 0;

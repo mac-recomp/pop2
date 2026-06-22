@@ -177,6 +177,28 @@ kbd{font-family:var(--font-mono);font-size:.66rem;color:var(--parch-100);min-wid
 :fullscreen .titlebar{display:none;}
 :fullscreen.stage{max-width:none;width:auto;height:100%;padding:0;border-radius:0;}
 :fullscreen .well{height:100%;width:auto;aspect-ratio:4/3;margin:0 auto;}
+
+/* ON-SCREEN TOUCH CONTROLS — only on touch devices, only while playing */
+.touch-controls{display:none;position:absolute;inset:0;z-index:6;pointer-events:none;}
+#stage[data-state="playing"] .touch-controls{display:block;}
+@media (hover:hover) and (pointer:fine){.touch-controls{display:none!important;}}
+.tc-pad{position:absolute;bottom:clamp(10px,3vw,22px);left:clamp(10px,3vw,22px);
+  display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);gap:6px;
+  width:clamp(132px,36vw,180px);height:clamp(132px,36vw,180px);}
+.tc-actions{position:absolute;bottom:clamp(10px,3vw,22px);right:clamp(10px,3vw,22px);
+  display:flex;flex-direction:column;gap:10px;align-items:flex-end;}
+.tc-btn{
+  pointer-events:auto;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;
+  display:flex;align-items:center;justify-content:center;
+  font-family:var(--font-display);font-size:1.2rem;color:var(--gold-300);
+  background:linear-gradient(180deg, rgba(40,28,16,.66), rgba(20,13,8,.74));
+  border:1px solid var(--gold-700);border-radius:10px;
+  box-shadow:0 2px 10px rgba(0,0,0,.5), inset 0 1px 0 rgba(240,216,148,.14);
+  -webkit-backdrop-filter:blur(2px);backdrop-filter:blur(2px);
+}
+.tc-btn.held{background:linear-gradient(180deg,var(--gold-500),var(--gold-700));color:var(--night-900);box-shadow:var(--glow-gold);}
+.tc-up{grid-area:1/2/2/3;} .tc-left{grid-area:2/1/3/2;} .tc-right{grid-area:2/3/3/4;} .tc-down{grid-area:3/2/4/3;}
+.tc-act{width:clamp(58px,16vw,76px);height:clamp(58px,16vw,76px);border-radius:50%;font-size:.6rem;letter-spacing:.05em;text-transform:uppercase;text-align:center;line-height:1.1;}
 </style>
 </head>
 <body>
@@ -223,6 +245,20 @@ kbd{font-family:var(--font-mono);font-size:.66rem;color:var(--parch-100);min-wid
           <input id="file-input" type="file" accept=".gz,.tgz,.tar" hidden />
           <p class="drop-formats">Accepts pop2-data.tar.gz (built with tools/make-web-data.sh)</p>
         </label>
+      </div>
+
+      <!-- on-screen touch controls (shown only on touch devices while playing) -->
+      <div class="touch-controls" aria-hidden="true">
+        <div class="tc-pad">
+          <button class="tc-btn tc-up"    type="button" data-vk="126" aria-label="Up">▲</button>
+          <button class="tc-btn tc-left"  type="button" data-vk="123" aria-label="Left">◀</button>
+          <button class="tc-btn tc-right" type="button" data-vk="124" aria-label="Right">▶</button>
+          <button class="tc-btn tc-down"  type="button" data-vk="125" aria-label="Down">▼</button>
+        </div>
+        <div class="tc-actions">
+          <button class="tc-btn tc-act" type="button" data-vk="56" aria-label="Careful step, grab, draw sword">Grab<br>Sword</button>
+          <button class="tc-btn tc-act" type="button" data-vk="53" aria-label="Menu">Menu</button>
+        </div>
       </div>
     </div>
   </main>
@@ -374,6 +410,17 @@ kbd{font-family:var(--font-mono);font-size:.66rem;color:var(--parch-100);min-wid
     });
     var cb = document.getElementById('controls-toggle-cb');
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && cb && cb.checked) cb.checked = false; });
+
+    // ---- on-screen touch controls → injected Mac key presses ----
+    function touchKey(vk, down) { if (Module._pop2_touch_key) Module._pop2_touch_key(vk, down ? 1 : 0); }
+    Array.prototype.forEach.call(document.querySelectorAll('.tc-btn'), function (b) {
+      var vk = parseInt(b.getAttribute('data-vk'), 10);
+      function press(e) { e.preventDefault(); b.classList.add('held'); try { b.setPointerCapture(e.pointerId); } catch (x) {} touchKey(vk, true); }
+      function release(e) { e.preventDefault(); if (!b.classList.contains('held')) return; b.classList.remove('held'); touchKey(vk, false); }
+      b.addEventListener('pointerdown', press);
+      b.addEventListener('pointerup', release);
+      b.addEventListener('pointercancel', release);
+    });
   })();
   </script>
 
