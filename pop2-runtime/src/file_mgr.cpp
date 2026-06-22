@@ -23,17 +23,22 @@
 // page reload. Called after a writable file is closed (i.e. a save was just
 // written). pop2_persist_init() (main.cpp) restores them on the next boot.
 EM_JS(void, pop2_persist_root, (), {
-  try {
-    var names = FS.readdir('/data/pop2');
-    for (var i = 0; i < names.length; i++) {
-      var f = names[i];
-      if (f === '.' || f === '..') continue;
-      var p = '/data/pop2/' + f;
-      try { if (FS.isFile(FS.stat(p).mode)) FS.writeFile('/data/persist/' + f, FS.readFile(p)); }
-      catch (e) {}
-    }
-  } catch (e) {}
-  FS.syncfs(false, function () {});
+  // Debounced: a save burst (and the boot-time prefs writes) coalesce into one
+  // mirror + syncfs ~0.8s after the last close, instead of one per close — that
+  // repeated work (esp. copying the big read-only .rsrc fork) stalled startup.
+  if (globalThis.__pop2syncTimer) clearTimeout(globalThis.__pop2syncTimer);
+  globalThis.__pop2syncTimer = setTimeout(function () {
+    try {
+      var names = FS.readdir('/data/pop2');
+      for (var i = 0; i < names.length; i++) {
+        var f = names[i];
+        if (f === '.' || f === '..' || /\.rsrc$/i.test(f)) continue;   // skip read-only resource forks
+        var p = '/data/pop2/' + f;
+        try { if (FS.isFile(FS.stat(p).mode)) FS.writeFile('/data/persist/' + f, FS.readFile(p)); } catch (e) {}
+      }
+    } catch (e) {}
+    FS.syncfs(false, function () {});
+  }, 800);
 });
 #endif
 
