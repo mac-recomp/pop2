@@ -14,6 +14,9 @@
 #include <map>
 #include <thread>
 #include <vector>
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#endif
 
 namespace pop2 {
 
@@ -851,7 +854,11 @@ static void os_trap(Cpu& cpu, uint16_t op) {
     case 0xA032: cpu.d[0] = 0; return;                                   // FlushEvents
     case 0xA03B: {  // Delay: A0 = ticks
         uint32_t t = cpu.a[0];
+#ifdef __EMSCRIPTEN__
+        emscripten_sleep(t * 1000 / 60);  // Asyncify: yield instead of block
+#else
         std::this_thread::sleep_for(std::chrono::milliseconds(t * 1000 / 60));
+#endif
         cpu.d[0] = ticks_now();
         return;
     }
@@ -2825,7 +2832,11 @@ static void tb_trap(Cpu& cpu, uint16_t op) {
             mem_write16(evp + 12, uint16_t(ev.where_h));
             mem_write16(evp + 14, ev.modifiers);
         }
+#ifdef __EMSCRIPTEN__
+        if (!got) emscripten_sleep(1);  // Asyncify: yield while idle-waiting
+#else
         if (!got) std::this_thread::sleep_for(std::chrono::milliseconds(1));
+#endif
         ret_w(cpu, got ? 0x0100 : 0);
         return;
     }

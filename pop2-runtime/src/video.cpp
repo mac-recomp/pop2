@@ -6,6 +6,9 @@
 #include "pop2/mac.h"
 
 #include <SDL2/SDL.h>
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#endif
 
 #include <cstdlib>
 #include <cstring>
@@ -982,6 +985,15 @@ void video_pump() {
     if (now - s_last_present >= 16) {
         s_last_present = now;
         present();
+#ifdef __EMSCRIPTEN__
+        // Asyncify yield (~once per displayed frame): hand control back to the
+        // browser so the canvas composites and timers/events run. video_pump()
+        // is the universal pump — every event poll (WaitNextEvent/GetNextEvent)
+        // and the Ticks busy-wait pacing loop reach it — so the tab can never
+        // lock up regardless of which guest loop is spinning. The recompiled
+        // 150k-line main loop is never restructured; it just unwinds here.
+        emscripten_sleep(1);
+#endif
     }
 }
 

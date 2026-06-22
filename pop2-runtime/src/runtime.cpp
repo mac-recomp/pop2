@@ -4,7 +4,9 @@
 #include "gen_decls.h"
 
 #include <cstdarg>
-#include <execinfo.h>
+#ifndef __EMSCRIPTEN__
+#include <execinfo.h>   // glibc host backtrace (POP2_WATCH); absent under wasm
+#endif
 #include <cstdlib>
 #include <cstring>
 #include <unordered_map>
@@ -24,9 +26,11 @@ void watch_hit(uint32_t addr, uint32_t val) {
     s_hits++;
     std::fprintf(stderr, "[watch] write %08X to %06X t=%u — host bt:\n", val, addr,
                  ticks_live());
+#ifndef __EMSCRIPTEN__
     void* frames[14];
     int n = backtrace(frames, 14);
     backtrace_symbols_fd(frames, n, 2);
+#endif
 }
 
 static std::unordered_map<uint32_t, GuestFn> s_vfns;

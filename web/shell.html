@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Prince of Persia 2: The Shadow and the Flame</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: radial-gradient(ellipse at center, #2a1d12 0%, #140d08 70%, #0a0705 100%);
+    color: #d8c7a0;
+    font-family: ui-sans-serif, system-ui, "Segoe UI", sans-serif;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 100vh; gap: 14px; padding: 16px;
+  }
+  h1 {
+    margin: 0; font-size: 14px; font-weight: 600; letter-spacing: .18em;
+    text-transform: uppercase; color: #b89a63; opacity: .85;
+  }
+  #canvas {
+    display: block; background: #000;
+    image-rendering: pixelated; image-rendering: crisp-edges;
+    height: min(78vh, 71vw); width: auto; aspect-ratio: 512 / 384;
+    border: 1px solid #3a2a18;
+    box-shadow: 0 10px 50px rgba(0,0,0,.7), 0 0 0 1px rgba(184,154,99,.15);
+    outline: none;
+  }
+  #status {
+    font-size: 13px; color: #8a7a5a; min-height: 1.2em;
+    letter-spacing: .03em; font-variant-numeric: tabular-nums;
+  }
+</style>
+</head>
+<body>
+  <h1>Prince of Persia 2 &middot; The Shadow and the Flame</h1>
+  <canvas id="canvas" tabindex="0" oncontextmenu="event.preventDefault()"></canvas>
+  <div id="status">loading…</div>
+  <script>
+    (function () {
+      var statusEl = document.getElementById('status');
+      window.Module = window.Module || {};
+      Module.canvas = document.getElementById('canvas');
+      Module.print = function (t) { console.log(t); };
+      Module.printErr = function (t) { console.error(t); };
+      Module.setStatus = function (t) {
+        if (!statusEl) return;
+        statusEl.textContent = t || '';
+        statusEl.style.visibility = t ? 'visible' : 'hidden';
+      };
+      Module.setStatus('loading…');
+      window.addEventListener('error', function () { Module.setStatus('error — see console'); });
+    })();
+  </script>
+  {{{ SCRIPT }}}
+</body>
+</html>
