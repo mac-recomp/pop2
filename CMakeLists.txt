@@ -78,15 +78,14 @@ if(EMSCRIPTEN)
             "SHELL:--preload-file ${CMAKE_BINARY_DIR}/assets/vol@/data/pop2")
     endif()
 
-    # Optimize the web build. The default Debug config (-O0 -g) yields a ~45 MB
-    # wasm that is slow to download, compile, and run; -O2 -g0 cuts it sharply.
-    # The recompiled 68k code is only ever built -O0 otherwise, so guard the two
-    # UB classes an aggressive optimizer would miscompile in such a port: -fwrapv
-    # (defined signed-overflow wraparound) and -fno-strict-aliasing (the guest
-    # memory is punned through a byte array). Verified the game still renders and
-    # saves correctly under these flags.
-    target_compile_options(pop2 PRIVATE -O2 -g0 -fwrapv -fno-strict-aliasing)
-    target_link_options(pop2 PRIVATE -O2 -g0)   # -g0 lets binaryen fully optimize
+    # Shrink the web build: the default Debug config (-O0 -g) is a ~45 MB wasm.
+    # -g0 strips the DWARF debug info (most of the bloat) WITHOUT optimizing. The
+    # recompiled 68k code carries latent UB that even -O1 miscompiles — it slowly
+    # drains the player's HP — and native is only ever built -O0, so keep -O0 here
+    # for identical, correct codegen and just drop the debug info. (Finding the UB
+    # to re-enable optimization is a follow-up.)
+    target_compile_options(pop2 PRIVATE -O0 -g0)
+    target_link_options(pop2 PRIVATE -O0 -g0)
 
     target_compile_options(pop2 PRIVATE "-sUSE_SDL=2")
     target_link_options(pop2 PRIVATE
