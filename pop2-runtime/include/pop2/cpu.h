@@ -209,7 +209,6 @@ template <class T> inline T op_lsr(Cpu& cpu, T a, unsigned cnt) {
 }
 template <class T> inline T op_asl(Cpu& cpu, T a, unsigned cnt) {
     constexpr unsigned BITS = sizeof(T) * 8;
-    using S = std::make_signed_t<T>;
     T r;
     if (cnt == 0) { cpu.c = false; cpu.v = false; r = a; }
     else if (cnt >= BITS) {
