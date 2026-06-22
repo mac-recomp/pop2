@@ -68,6 +68,7 @@ if(EMSCRIPTEN)
         "-sSTACK_SIZE=5242880"         # deep recompiled C++ call chains
         "-sEXIT_RUNTIME=0"             # guest loop never returns (ExitToShell)
         "-sFORCE_FILESYSTEM=1"
+        "-lidbfs.js"                   # IDBFS for persistent saves (see main.cpp)
         # SHELL: keeps CMake from de-duplicating the repeated --preload-file /
         # --pre-js flag tokens (de-dup silently drops the 2nd mapping, leaving
         # it dangling as a bogus input file).

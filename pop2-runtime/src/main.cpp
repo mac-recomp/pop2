@@ -9,6 +9,26 @@
 #include <filesystem>
 #include <fstream>
 #include <vector>
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+// Restore persisted save games before the guest runs: mount IDBFS at
+// /data/persist, load it from IndexedDB, and copy any saves into the game
+// volume root (/data/pop2), where SFGetFile / fs_first_pop2_save look. Awaits
+// the async syncfs via Asyncify/JSPI. Paired with pop2_persist_root (file_mgr).
+EM_ASYNC_JS(void, pop2_persist_init, (), {
+  try { FS.mkdir('/data/persist'); } catch (e) {}
+  try { FS.mount(IDBFS, {}, '/data/persist'); } catch (e) {}
+  await new Promise(function (resolve) { FS.syncfs(true, function () { resolve(); }); });
+  try {
+    var names = FS.readdir('/data/persist');
+    for (var i = 0; i < names.length; i++) {
+      var f = names[i];
+      if (f === '.' || f === '..') continue;
+      try { FS.writeFile('/data/pop2/' + f, FS.readFile('/data/persist/' + f)); } catch (e) {}
+    }
+  } catch (e) {}
+});
+#endif
 
 namespace fs = std::filesystem;
 using namespace pop2;
@@ -28,6 +48,9 @@ int main(int argc, char** argv) {
     fs_init(argc > 2 ? argv[2]
                      : (fs::path(argv[1]) / ".." / ".." / ".." / ".." /
                         "extracted_sit" / "Prince of Persia 2").lexically_normal().string());
+#ifdef __EMSCRIPTEN__
+    pop2_persist_init();   // mount IDBFS + restore saved games before the guest runs
+#endif
 
     // load CODE resources at their virtual bases
     int loaded = 0;

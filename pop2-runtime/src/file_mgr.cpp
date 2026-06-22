@@ -16,6 +16,26 @@
 #include <map>
 #include <optional>
 #include <vector>
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+// Mirror the writable files in the game volume root (/data/pop2) to the
+// IDBFS-backed /data/persist and flush to IndexedDB, so saved games survive a
+// page reload. Called after a writable file is closed (i.e. a save was just
+// written). pop2_persist_init() (main.cpp) restores them on the next boot.
+EM_JS(void, pop2_persist_root, (), {
+  try {
+    var names = FS.readdir('/data/pop2');
+    for (var i = 0; i < names.length; i++) {
+      var f = names[i];
+      if (f === '.' || f === '..') continue;
+      var p = '/data/pop2/' + f;
+      try { if (FS.isFile(FS.stat(p).mode)) FS.writeFile('/data/persist/' + f, FS.readFile(p)); }
+      catch (e) {}
+    }
+  } catch (e) {}
+  FS.syncfs(false, function () {});
+});
+#endif
 
 namespace fs = std::filesystem;
 
@@ -334,7 +354,16 @@ void fs_get_finfo(const std::string& host, uint32_t* type, uint32_t* creator) {
 }
 
 int16_t fs_close(int16_t refnum) {
-    return s_open.erase(refnum) ? noErr : fnOpnErr;
+    auto it = s_open.find(refnum);
+    if (it == s_open.end()) return fnOpnErr;
+#ifdef __EMSCRIPTEN__
+    const bool was_writable = it->second.writable;
+#endif
+    s_open.erase(it);   // closes the fstream — data is now flushed to MEMFS
+#ifdef __EMSCRIPTEN__
+    if (was_writable) ::pop2_persist_root();   // persist saved games to IndexedDB
+#endif
+    return noErr;
 }
 
 static int32_t seek_to(OpenFile& of, uint16_t mode, int32_t off) {
