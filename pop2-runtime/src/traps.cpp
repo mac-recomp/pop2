@@ -876,8 +876,10 @@ static void os_trap(Cpu& cpu, uint16_t op) {
     }
     // ---- Time Manager ----
     case 0xA058: {  // InsTime / InsXTime: A0 = TMTask*
-        std::fprintf(stderr, "[time] InsTime task=%06X tmAddr=%06X pc=%06X\n",
-                     cpu.a[0], mem_read32(cpu.a[0] + 6), cpu.pc);
+        static const bool trace_tm = std::getenv("POP2_TRACE_TM") != nullptr;
+        if (trace_tm)                           // else this floods every TM call
+            std::fprintf(stderr, "[time] InsTime task=%06X tmAddr=%06X pc=%06X\n",
+                         cpu.a[0], mem_read32(cpu.a[0] + 6), cpu.pc);
         s_tm_tasks[cpu.a[0]];                   // register, inactive
         mem_write16(cpu.a[0] + 4, 1);           // qType: vType, not active
         mem_write32(cpu.a[0] + 10, 0);          // tmCount starts clean
@@ -902,9 +904,11 @@ static void os_trap(Cpu& cpu, uint16_t op) {
     }
     case 0xA198: cpu.d[0] = 0; return;  // HWPriv: cache flush etc. — no-op
     case 0xA033: {  // VInstall: A0 = VBLTask*
-        std::fprintf(stderr, "[vbl] VInstall task=%06X vblAddr=%06X count=%d\n",
-                     cpu.a[0], mem_read32(cpu.a[0] + 6),
-                     mem_read16(cpu.a[0] + 10));
+        static const bool trace_vbl = std::getenv("POP2_TRACE_VBL") != nullptr;
+        if (trace_vbl)
+            std::fprintf(stderr, "[vbl] VInstall task=%06X vblAddr=%06X count=%d\n",
+                         cpu.a[0], mem_read32(cpu.a[0] + 6),
+                         mem_read16(cpu.a[0] + 10));
         s_vbl_tasks.emplace(cpu.a[0], now_us());
         cpu.d[0] = 0;
         return;
