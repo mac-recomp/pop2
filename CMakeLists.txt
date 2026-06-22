@@ -79,11 +79,15 @@ if(EMSCRIPTEN)
     endif()
 
     # Shrink the web build: the default Debug config (-O0 -g) is a ~45 MB wasm.
-    # -g0 strips the DWARF debug info (most of the bloat) WITHOUT optimizing. The
-    # recompiled 68k code carries latent UB that even -O1 miscompiles — it slowly
-    # drains the player's HP — and native is only ever built -O0, so keep -O0 here
-    # for identical, correct codegen and just drop the debug info. (Finding the UB
-    # to re-enable optimization is a follow-up.)
+    # -g0 strips the DWARF debug info (most of the bloat) without optimizing,
+    # halving it to ~23 MB. We keep -O0 (the only config native is built with) so
+    # the codegen is identical to the verified native build.
+    #   NB: an earlier revision blamed a "slow HP drain" on an -O1/-O2 miscompile.
+    #   That was wrong — the drain was traced (POP2_WATCH on the HP word + addr2line)
+    #   to intended level-14 finale logic: f2_54d6 integrates HP toward zero and
+    #   f6_4382 drives it, both gated on the env8582==6 finale flag. It reproduces
+    #   on -O0 native too. So -O2 (~12 MB, faster boot) is a viable follow-up once
+    #   verified against native; -O0 is just the conservative default for now.
     target_compile_options(pop2 PRIVATE -O0 -g0)
     target_link_options(pop2 PRIVATE -O0 -g0)
 
