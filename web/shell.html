@@ -246,6 +246,11 @@ kbd{font-family:var(--font-mono);font-size:.66rem;color:var(--parch-100);min-wid
 .save-load:hover{border-color:var(--gold-500);}
 .save-del{flex:none;background:none;border:0;color:var(--parch-400);font-size:.92rem;line-height:1;cursor:pointer;width:22px;height:22px;border-radius:4px;}
 .save-del:hover{color:#e9938f;background:rgba(220,90,80,.14);}
+/* picker build: clear the remembered data archive (shown once data is loaded) */
+.forget-data{display:none;margin-top:12px;width:100%;background:none;border:1px solid var(--border-faint);color:var(--parch-400);font-family:var(--font-mono);font-size:.72rem;letter-spacing:.03em;border-radius:5px;padding:7px;cursor:pointer;}
+.forget-data:hover{color:#e9938f;border-color:rgba(220,90,80,.5);}
+.forget-data:disabled{cursor:default;opacity:.6;}
+body.has-saved-data .forget-data{display:block;}
 </style>
 </head>
 <body>
@@ -349,6 +354,7 @@ kbd{font-family:var(--font-mono);font-size:.66rem;color:var(--parch-100);min-wid
       </div>
       <ul id="save-list" class="save-list"><li class="save-empty">No saved games yet.</li></ul>
     </div>
+    <button id="forget-data" class="forget-data" type="button">Forget loaded game data</button>
   </div>
 
   <!-- Shell wiring: drives #stage[data-state], the progress bar, the start gate
@@ -402,7 +408,12 @@ kbd{font-family:var(--font-mono);font-size:.66rem;color:var(--parch-100);min-wid
     Module.onRuntimeInitialized = function () {
       var hasData = false;
       try { hasData = Module.FS.analyzePath('/data/app/CODE').exists; } catch (e) {}
-      setState(hasData ? 'start' : 'dropzone');   // preload → sound gate; else → picker
+      if (hasData) { setState('start'); return; }   // preload build → sound gate
+      // picker build: auto-load the player's remembered archive, else the drop-zone
+      idbGetArchive().then(function (buf) {
+        if (buf) loadBytes('saved data', new Uint8Array(buf), true);
+        else setState('dropzone');
+      });
     };
 
     // Start gate (preload build): the first click/key starts the game, and the
@@ -442,26 +453,47 @@ kbd{font-family:var(--font-mono);font-size:.66rem;color:var(--parch-100);min-wid
       var parts = path.split('/').filter(Boolean), cur = '';
       for (var i = 0; i < parts.length; i++) { cur += '/' + parts[i]; try { Module.FS.mkdir(cur); } catch (e) {} }
     }
-    async function loadData(file) {
+    // Remember the chosen archive in IndexedDB so the player needn't re-drop the
+    // (~15 MB) tar.gz every visit; it is auto-loaded on the next picker launch.
+    function idbTx(mode, fn) {
+      return new Promise(function (res, rej) {
+        var open = indexedDB.open('pop2-data', 1);
+        open.onupgradeneeded = function () { open.result.createObjectStore('files'); };
+        open.onerror = function () { rej(open.error); };
+        open.onsuccess = function () {
+          var db = open.result, tx = db.transaction('files', mode), rq = fn(tx.objectStore('files'));
+          tx.oncomplete = function () { res(rq && rq.result); db.close(); };
+          tx.onerror = function () { rej(tx.error); };
+        };
+      });
+    }
+    var idbGetArchive = function () { return idbTx('readonly', function (s) { return s.get('archive'); }).catch(function () { return null; }); };
+    var idbPutArchive = function (buf) { return idbTx('readwrite', function (s) { s.put(buf, 'archive'); }).catch(function () {}); };
+    var idbDelArchive = function () { return idbTx('readwrite', function (s) { s.delete('archive'); }).catch(function () {}); };
+
+    async function loadBytes(label, origBytes, fromCache) {
       try {
-        setState('loading'); setProgress(0.05, 'Reading ' + file.name + '…');
-        var bytes = new Uint8Array(await file.arrayBuffer());
-        if (/\.t?gz$/i.test(file.name)) { setProgress(0.3, 'Decompressing…'); bytes = await gunzip(bytes); }
+        setState('loading'); setProgress(0.05, 'Reading ' + label + '…');
+        var bytes = origBytes;
+        if (bytes[0] === 0x1f && bytes[1] === 0x8b) { setProgress(0.3, 'Decompressing…'); bytes = await gunzip(bytes); }
         setProgress(0.6, 'Unpacking…');
         var files = untar(bytes);
-        if (!files.length) { setState('dropzone'); alert('Not a tar archive — expected pop2-data.tar.gz'); return; }
+        var bad = function (msg) { if (fromCache) idbDelArchive(); setState('dropzone'); if (!fromCache) alert(msg); };
+        if (!files.length) return bad('Not a tar archive — expected pop2-data.tar.gz');
         for (var i = 0; i < files.length; i++) {
           var dst = '/data/' + files[i].name;
           mkdirp(dst.slice(0, dst.lastIndexOf('/')));
           Module.FS.writeFile(dst, files[i].data);
         }
-        if (!Module.FS.analyzePath('/data/app/CODE').exists) {
-          setState('dropzone'); alert('Archive has no app/CODE — expected app/, data/, pop2/'); return;
-        }
+        if (!Module.FS.analyzePath('/data/app/CODE').exists) return bad('Archive has no app/CODE — expected app/, data/, pop2/');
+        if (!fromCache) idbPutArchive(origBytes.buffer.slice(origBytes.byteOffset, origBytes.byteOffset + origBytes.byteLength));
+        document.body.classList.add('has-saved-data');   // reveal the "Forget data" control
         setProgress(1, 'Starting…');
-        startGame();   // the file pick was the user gesture → audio is authorized
-      } catch (e) { setState('dropzone'); console.error(e); alert('Failed to load data: ' + e); }
+        startGame();   // a fresh pick is a user gesture (audio authorized); a cached
+                       // auto-load is not — audio then resumes on the first interaction
+      } catch (e) { console.error(e); if (fromCache) idbDelArchive(); setState('dropzone'); if (!fromCache) alert('Failed to load data: ' + e); }
     }
+    async function loadData(file) { loadBytes(file.name, new Uint8Array(await file.arrayBuffer()), false); }
     var fileInput = document.getElementById('file-input');
     if (fileInput) fileInput.addEventListener('change', function (e) { if (e.target.files[0]) loadData(e.target.files[0]); });
     var dz = document.getElementById('drop-zone');
@@ -591,6 +623,13 @@ kbd{font-family:var(--font-mono);font-size:.66rem;color:var(--parch-100);min-wid
     // Refresh the slot list whenever the controls popover is opened.
     var ctlCb = document.getElementById('controls-toggle-cb');
     if (ctlCb) ctlCb.addEventListener('change', function () { if (ctlCb.checked) renderSaves(); });
+
+    // ---- picker build: forget the remembered data archive ----
+    var forgetBtn = document.getElementById('forget-data');
+    if (forgetBtn) forgetBtn.addEventListener('click', function () {
+      idbDelArchive(); document.body.classList.remove('has-saved-data');
+      forgetBtn.textContent = 'Forgotten — reload to choose new data'; forgetBtn.disabled = true;
+    });
 
     // ---- on-screen touch controls → injected Mac key presses ----
     function touchKey(vk, down) { if (Module._pop2_touch_key) Module._pop2_touch_key(vk, down ? 1 : 0); }
