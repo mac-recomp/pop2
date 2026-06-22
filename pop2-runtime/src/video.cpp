@@ -582,6 +582,12 @@ void video_set_color(int index, uint8_t r, uint8_t g, uint8_t b) {
 const uint32_t* video_palette() { return s_pal; }
 
 uint8_t video_match_color(uint8_t r, uint8_t g, uint8_t b) {
+    // Pure black resolves to index 0, which present() always renders black —
+    // stable even when the palette changes. Otherwise a black background set via
+    // BackColor lands on whatever index is darkest *right now* (often a live color
+    // index like 1) and turns yellow/red once that index's palette entry later
+    // changes — the level-load border bug.
+    if (!r && !g && !b) return 0;
     int best = 0, best_d = 1 << 30;
     for (int i = 0; i < 256; i++) {
         int dr = int((s_pal[i] >> 16) & 0xFF) - r;
@@ -1131,6 +1137,13 @@ extern "C" EMSCRIPTEN_KEEPALIVE void pop2_touch_key(int vk_, int down) {
 extern "C" EMSCRIPTEN_KEEPALIVE void pop2_set_invincible(int on) { s_invincible = (on != 0); }
 extern "C" EMSCRIPTEN_KEEPALIVE void pop2_set_hp_boost(int n) { s_hp_boost = n; }
 extern "C" EMSCRIPTEN_KEEPALIVE int pop2_dbg_hp() { return int16_t(mem_read16(0x080000u - 20536)); }
+extern "C" EMSCRIPTEN_KEEPALIVE int pop2_dbg_fb(int x, int y) {
+    if (x < 0 || y < 0 || x >= kWidth || y >= kHeight) return -1;
+    return g_mem[FB_BASE + size_t(y) * kWidth + x];   // raw 8-bit palette index
+}
+extern "C" EMSCRIPTEN_KEEPALIVE unsigned pop2_dbg_pal(int i) {
+    return (i >= 0 && i < 256) ? s_pal[i] : 0;          // ARGB
+}
 
 // Inject a Cmd+<letter> menu command straight into the game's event queue,
 // bypassing the browser (which would eat real Cmd+S/O/N). The game's loop sees
