@@ -30,12 +30,20 @@
     font-size: 13px; color: #8a7a5a; min-height: 1.2em;
     letter-spacing: .03em; font-variant-numeric: tabular-nums;
   }
+  #sound-hint {
+    position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%);
+    background: rgba(10,7,5,.72); color: #e8d8b0; padding: 8px 16px;
+    border: 1px solid rgba(184,154,99,.35); border-radius: 20px; font-size: 13px;
+    pointer-events: none; opacity: 1; transition: opacity .5s;
+  }
+  #sound-hint.gone { opacity: 0; }
 </style>
 </head>
 <body>
   <h1>Prince of Persia 2 &middot; The Shadow and the Flame</h1>
   <canvas id="canvas" tabindex="0" oncontextmenu="event.preventDefault()"></canvas>
   <div id="status">loading…</div>
+  <div id="sound-hint">🔊 Click or press any key to enable sound</div>
   <script>
     (function () {
       var statusEl = document.getElementById('status');
@@ -50,6 +58,20 @@
       };
       Module.setStatus('loading…');
       window.addEventListener('error', function () { Module.setStatus('error — see console'); });
+
+      // Browsers start audio suspended until a user gesture; SDL/Emscripten
+      // resumes the AudioContext on the first click or key. We don't gate the
+      // game on it — just show a hint and fade it once the player interacts
+      // (the gesture itself unlocks sound; the listener never preventDefaults,
+      // and the hint is pointer-events:none, so the click still reaches the game).
+      var hint = document.getElementById('sound-hint');
+      function dismissHint() {
+        if (hint) hint.classList.add('gone');
+        document.removeEventListener('pointerdown', dismissHint, true);
+        document.removeEventListener('keydown', dismissHint, true);
+      }
+      document.addEventListener('pointerdown', dismissHint, true);
+      document.addEventListener('keydown', dismissHint, true);
     })();
   </script>
   {{{ SCRIPT }}}
