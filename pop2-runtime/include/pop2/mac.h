@@ -20,7 +20,13 @@ inline constexpr uint32_t TRAP_STUB_END  = 0xE10000;
 inline uint32_t trap_stub_addr(uint16_t trap) {
     return TRAP_STUB_BASE | (uint32_t(trap & 0xFFF) << 4);
 }
-inline constexpr uint32_t FB_BASE      = 0xF00000;  // future framebuffer
+inline constexpr uint32_t FB_BASE      = 0xF00000;  // framebuffer
+// Guest screen geometry — PoP2's native size (12" Macintosh RGB display).
+// The framebuffer stride, the screen PixMap rowBytes, and every screen-bounds
+// rect MUST equal these: drawing strides by the port's rowBytes while present()
+// reads by SCREEN_W, so any mismatch shears the image. 8bpp => rowBytes==SCREEN_W.
+inline constexpr int SCREEN_W = 512;
+inline constexpr int SCREEN_H = 384;
 
 // ---- error codes ----
 inline constexpr int16_t noErr        = 0;

@@ -1,4 +1,4 @@
-// SDL2 video/input: presents the 640x480 8-bit guest framebuffer (FB_BASE)
+// SDL2 video/input: presents the 512x384 8-bit guest framebuffer (FB_BASE)
 // through the runtime palette, and feeds keyboard/mouse state to the Event
 // Manager traps. Initialized lazily on the first pump so resource-dump tools
 // and headless runs (POP2_NO_VIDEO=1, or no display) keep working.
@@ -17,8 +17,8 @@ namespace pop2 {
 
 namespace {
 
-constexpr int kWidth = 640;
-constexpr int kHeight = 480;
+constexpr int kWidth = SCREEN_W;    // 512 — PoP2's native screen (see mac.h)
+constexpr int kHeight = SCREEN_H;   // 384
 
 enum class State { Uninit, On, Off };
 State s_state = State::Uninit;
@@ -39,7 +39,7 @@ const bool s_pal_init = [] {
 }();
 uint8_t s_keymap[16];           // Mac KeyMap bits
 bool s_button = false;
-int16_t s_mouse_h = 320, s_mouse_v = 240;
+int16_t s_mouse_h = SCREEN_W / 2, s_mouse_v = SCREEN_H / 2;
 uint32_t s_last_present = 0;    // SDL_GetTicks of last frame
 std::deque<MacEvent> s_events;
 
@@ -319,8 +319,8 @@ void maybe_dump(int frame) {
     std::fprintf(f, "P6\n%d %d\n255\n", kWidth, kHeight);
     const uint8_t* fb = g_mem + FB_BASE;
     for (int i = 0; i < kWidth * kHeight; i++) {
-        // index 0 is the never-drawn border outside the 512x342 game rect
-        // (a real Mac desktop covered it); the game never draws color 0
+        // the game's CLUT never assigns index 0, so 0 means "not yet drawn"
+        // (only transient now the framebuffer equals the 512x384 game rect)
         uint32_t c = fb[i] ? s_pal[fb[i]] : 0xFF000000u;
         uint8_t rgb[3] = {uint8_t(c >> 16), uint8_t(c >> 8), uint8_t(c)};
         std::fwrite(rgb, 1, 3, f);

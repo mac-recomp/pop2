@@ -45,7 +45,7 @@ static uint32_t new_region(int16_t t = 0, int16_t l = 0,
     return h;
 }
 
-// Main screen GDevice: 640x480, 8-bit indexed CLUT — built lazily.
+// Main screen GDevice: 512x384, 8-bit indexed CLUT — built lazily.
 static uint32_t main_gdevice() {
     static uint32_t s_gd = 0;
     if (s_gd) return s_gd;
@@ -64,9 +64,9 @@ static uint32_t main_gdevice() {
     uint32_t pm = mm_new_handle(50, true);
     uint32_t pp = mem_read32(pm);
     mem_write32(pp, FB_BASE);            // baseAddr
-    mem_write16(pp + 4, 0x8000 | 640);   // rowBytes | pixmap flag
+    mem_write16(pp + 4, 0x8000 | SCREEN_W);   // rowBytes | pixmap flag
     mem_write16(pp + 6, 0); mem_write16(pp + 8, 0);
-    mem_write16(pp + 10, 480); mem_write16(pp + 12, 640);
+    mem_write16(pp + 10, SCREEN_H); mem_write16(pp + 12, SCREEN_W);
     mem_write32(pp + 22, 0x00480000);    // hRes 72.0
     mem_write32(pp + 26, 0x00480000);    // vRes
     mem_write16(pp + 30, 0);             // pixelType: indexed
@@ -81,18 +81,18 @@ static uint32_t main_gdevice() {
     mem_write16(gp + 20, 0xA801);        // gdFlags: color|mainScreen|screenDevice|screenActive
     mem_write32(gp + 22, pm);            // gdPMap
     mem_write16(gp + 34, 0); mem_write16(gp + 36, 0);
-    mem_write16(gp + 38, 480); mem_write16(gp + 40, 640);  // gdRect
+    mem_write16(gp + 38, SCREEN_H); mem_write16(gp + 40, SCREEN_W);  // gdRect
     s_gd = gd;
     return gd;
 }
 
 // Build a WindowRecord (156 bytes, zeroed) as a NewPtr block; portRect from
-// the WIND resource if available, else 640x480. `color` makes a CGrafPort
+// the WIND resource if available, else 512x384. `color` makes a CGrafPort
 // window (portPixMap handle + portVersion C000) over the same screen pixels.
 static uint32_t make_window(int16_t wind_id, uint32_t storage,
                             bool color = false) {
     uint32_t w = storage ? storage : mm_new_ptr(160, true);
-    int16_t top = 0, left = 0, bottom = 480, right = 640;
+    int16_t top = 0, left = 0, bottom = SCREEN_H, right = SCREEN_W;
     if (uint32_t h = rm_get_resource(0x57494E44 /*WIND*/, wind_id, false)) {
         uint32_t p = mem_read32(h);
         int16_t t = int16_t(mem_read16(p)), l = int16_t(mem_read16(p + 2));
@@ -101,15 +101,15 @@ static uint32_t make_window(int16_t wind_id, uint32_t storage,
         rm_release_resource(h);
     }
     if (color) {
-        // screen PixMap (one shared handle): baseAddr=FB, 8 bpp, 640x480
+        // screen PixMap (one shared handle): baseAddr=FB, 8 bpp, 512x384
         static uint32_t s_screen_pm = 0;
         if (!s_screen_pm) {
             s_screen_pm = mm_new_handle(50, true);
             uint32_t pp = mem_read32(s_screen_pm);
             mem_write32(pp, FB_BASE);
-            mem_write16(pp + 4, uint16_t(0x8000 | 640));
+            mem_write16(pp + 4, uint16_t(0x8000 | SCREEN_W));
             mem_write16(pp + 6, 0); mem_write16(pp + 8, 0);
-            mem_write16(pp + 10, 480); mem_write16(pp + 12, 640);
+            mem_write16(pp + 10, SCREEN_H); mem_write16(pp + 12, SCREEN_W);
             mem_write32(pp + 22, 0x00480000);
             mem_write32(pp + 26, 0x00480000);
             mem_write16(pp + 32, 8);            // pixelSize
@@ -122,9 +122,9 @@ static uint32_t make_window(int16_t wind_id, uint32_t storage,
     } else {
         // GrafPort: device@0, portBits@2 {baseAddr,rowBytes,bounds}
         mem_write32(w + 2, FB_BASE);
-        mem_write16(w + 6, 640);
+        mem_write16(w + 6, SCREEN_W);
         mem_write16(w + 8, 0); mem_write16(w + 10, 0);
-        mem_write16(w + 12, 480); mem_write16(w + 14, 640);
+        mem_write16(w + 12, SCREEN_H); mem_write16(w + 14, SCREEN_W);
     }
     mem_write16(w + 16, 0); mem_write16(w + 18, 0);
     mem_write16(w + 20, uint16_t(bottom)); mem_write16(w + 22, uint16_t(right));
@@ -1186,11 +1186,11 @@ static void tb_trap(Cpu& cpu, uint16_t op) {
         }
         for (int i = 0; i < 68; i++) mem_write8(qd - 108 + i, 0);  // arrow
         mem_write32(qd - 122, FB_BASE);     // screenBits.baseAddr
-        mem_write16(qd - 118, 640);         // rowBytes
+        mem_write16(qd - 118, SCREEN_W);    // rowBytes
         mem_write16(qd - 116, 0);           // bounds.top
         mem_write16(qd - 114, 0);           // bounds.left
-        mem_write16(qd - 112, 480);         // bounds.bottom
-        mem_write16(qd - 110, 640);         // bounds.right
+        mem_write16(qd - 112, SCREEN_H);    // bounds.bottom
+        mem_write16(qd - 110, SCREEN_W);    // bounds.right
         mem_write32(qd - 126, 1);           // randSeed
         std::fprintf(stderr, "[trap] InitGraf(qd=%06X) — MILESTONE\n", qd);
         return;
