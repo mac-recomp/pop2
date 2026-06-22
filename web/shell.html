@@ -1,79 +1,382 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Prince of Persia 2: The Shadow and the Flame</title>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Prince of Persia 2 — The Shadow and the Flame</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700&family=Amiri:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet" />
 <style>
-  * { box-sizing: border-box; }
-  html, body { margin: 0; height: 100%; }
-  body {
-    background: radial-gradient(ellipse at center, #2a1d12 0%, #140d08 70%, #0a0705 100%);
-    color: #d8c7a0;
-    font-family: ui-sans-serif, system-ui, "Segoe UI", sans-serif;
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-    min-height: 100vh; gap: 14px; padding: 16px;
-  }
-  h1 {
-    margin: 0; font-size: 14px; font-weight: 600; letter-spacing: .18em;
-    text-transform: uppercase; color: #b89a63; opacity: .85;
-  }
-  #canvas {
-    display: block; background: #000;
-    image-rendering: pixelated; image-rendering: crisp-edges;
-    height: min(78vh, 71vw); width: auto; aspect-ratio: 512 / 384;
-    border: 1px solid #3a2a18;
-    box-shadow: 0 10px 50px rgba(0,0,0,.7), 0 0 0 1px rgba(184,154,99,.15);
-    outline: none;
-  }
-  #status {
-    font-size: 13px; color: #8a7a5a; min-height: 1.2em;
-    letter-spacing: .03em; font-variant-numeric: tabular-nums;
-  }
-  #sound-hint {
-    position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%);
-    background: rgba(10,7,5,.72); color: #e8d8b0; padding: 8px 16px;
-    border: 1px solid rgba(184,154,99,.35); border-radius: 20px; font-size: 13px;
-    pointer-events: none; opacity: 1; transition: opacity .5s;
-  }
-  #sound-hint.gone { opacity: 0; }
+/* ============================================================
+   PRINCE OF PERSIA 2 — THE SHADOW AND THE FLAME · web-player shell
+   Design: Claude Design "Shadow & Flame" system (self-contained, inline CSS).
+   The engine drives #stage[data-state] = loading | start | playing | dropzone.
+   ============================================================ */
+:root{
+  --night-900:#0d0906; --night-800:#120d08; --night-700:#1a130c; --night-600:#241a10;
+  --blood-800:#4a1212; --blood-700:#5e1a17; --blood-500:#a52f1c; --ember:#c64a2c;
+  --gold-700:#6e521f; --gold-600:#9c7a30; --gold-500:#c9a14a; --gold-400:#e0bd6b; --gold-300:#f0d894;
+  --lapis:#2a5aa8; --teal:#2d8378;
+  --parch-100:#f3ead4; --parch-200:#e7d8b6; --parch-300:#c8b48a; --parch-400:#9c8a66;
+  --border-faint:#3a2a18;
+  --font-display:'Cinzel','Trajan Pro',serif;
+  --font-body:'Amiri','Georgia',serif;
+  --font-mono:ui-monospace,'SF Mono',Menlo,Consolas,monospace;
+  --gilt-inset:inset 0 0 0 1px rgba(240,216,148,.22), inset 0 1px 0 0 rgba(240,216,148,.30), inset 0 -3px 10px 0 rgba(0,0,0,.6);
+  --glow-gold:0 0 0 1px rgba(201,161,74,.5), 0 0 18px -2px rgba(224,189,107,.5);
+  --ease-stand:cubic-bezier(.2,.7,.3,1);
+}
+*{box-sizing:border-box;}
+html,body{height:100%;}
+body{
+  margin:0; font-family:var(--font-body); color:var(--parch-200); background:var(--night-900);
+  background-image:
+    radial-gradient(ellipse 130% 90% at 50% -10%, #241608 0%, #160f08 42%, var(--night-900) 78%),
+    var(--night-900);
+  background-attachment:fixed; -webkit-font-smoothing:antialiased;
+  display:flex; flex-direction:column; align-items:center; min-height:100%;
+  padding:clamp(12px,3vw,40px) clamp(12px,3vw,32px) 28px; gap:clamp(16px,2.4vw,26px);
+}
+body::before{
+  content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
+  background:
+    repeating-linear-gradient(0deg, rgba(240,216,148,.018) 0 1px, transparent 1px 64px),
+    repeating-linear-gradient(90deg, rgba(240,216,148,.018) 0 1px, transparent 1px 64px);
+  mask-image:radial-gradient(ellipse 80% 70% at 50% 30%, #000 0%, transparent 80%);
+}
+.titlebar{position:relative;z-index:1;text-align:center;width:100%;max-width:1024px;}
+.title-kicker{
+  font-family:var(--font-display);font-weight:600;
+  font-size:clamp(.62rem,1.4vw,.78rem);letter-spacing:.42em;
+  color:var(--gold-500);text-transform:uppercase;margin:0 0 .55em;padding-left:.42em;
+}
+.title-main{
+  font-family:var(--font-display);font-weight:700;
+  font-size:clamp(1.4rem,4.4vw,2.5rem);letter-spacing:.16em;line-height:1;
+  margin:0;text-transform:uppercase;color:transparent;
+  background:linear-gradient(180deg,#f6e6b6 0%,var(--gold-400) 46%,var(--gold-600) 100%);
+  -webkit-background-clip:text;background-clip:text;text-shadow:0 1px 0 rgba(0,0,0,.4);padding-left:.16em;
+}
+.title-rule{display:flex;align-items:center;justify-content:center;gap:.9em;margin:.75em auto 0;max-width:30em;color:var(--gold-600);}
+.title-rule::before,.title-rule::after{content:"";height:1px;flex:1;background:linear-gradient(90deg,transparent,var(--gold-700) 40%,var(--gold-600));}
+.title-rule::after{transform:scaleX(-1);}
+.title-sub{font-family:var(--font-display);font-weight:500;font-size:clamp(.7rem,2vw,1rem);letter-spacing:.34em;color:var(--parch-300);text-transform:uppercase;white-space:nowrap;padding-left:.34em;}
+.title-star{color:var(--gold-500);font-size:.7em;}
+
+.stage{
+  position:relative;z-index:1;width:100%;max-width:1024px;padding:clamp(10px,1.6vw,18px);border-radius:8px;
+  background:
+    linear-gradient(180deg, rgba(240,216,148,.10) 0%, transparent 16%),
+    repeating-linear-gradient(45deg, rgba(240,216,148,.022) 0 2px, transparent 2px 7px),
+    linear-gradient(180deg,#2a1d10,#170f08);
+  box-shadow:var(--gilt-inset),0 0 0 1px var(--gold-700),0 0 0 4px #140d07,0 0 0 5px rgba(110,82,31,.55),0 28px 70px rgba(0,0,0,.72);
+}
+.stage .corner{position:absolute;width:22px;height:22px;z-index:4;pointer-events:none;}
+.stage .corner::before,.stage .corner::after{content:"";position:absolute;background:var(--gold-500);box-shadow:0 0 6px -1px rgba(224,189,107,.6);}
+.stage .corner::before{width:100%;height:2px;}
+.stage .corner::after{width:2px;height:100%;}
+.stage .corner.tl{top:6px;left:6px;}
+.stage .corner.tr{top:6px;right:6px;}
+.stage .corner.tr::after{right:0;}
+.stage .corner.tr::before{right:0;}
+.stage .corner.bl{bottom:6px;left:6px;}
+.stage .corner.bl::before{bottom:0;}
+.stage .corner.br{bottom:6px;right:6px;}
+.stage .corner.br::before{bottom:0;right:0;}
+.stage .corner.br::after{right:0;}
+
+.well{position:relative;width:100%;aspect-ratio:4 / 3;background:#000;border-radius:3px;overflow:hidden;box-shadow:inset 0 0 0 1px #000, inset 0 0 40px 6px rgba(0,0,0,.9);}
+#canvas{position:absolute;inset:0;width:100%;height:100%;display:block;image-rendering:pixelated;image-rendering:crisp-edges;background:#000;outline:none;}
+
+.overlay{position:absolute;inset:0;z-index:3;display:none;align-items:center;justify-content:center;text-align:center;padding:clamp(16px,4vw,40px);}
+.overlay-scrim{background:radial-gradient(ellipse 90% 80% at 50% 45%, rgba(20,11,6,.55), rgba(8,5,3,.92));backdrop-filter:blur(2px);}
+#stage[data-state="loading"]  #loading-state{display:flex;}
+#stage[data-state="start"]    #start-overlay{display:flex;}
+#stage[data-state="dropzone"] #drop-zone-state{display:flex;}
+
+#loading-state{flex-direction:column;gap:clamp(14px,3vw,22px);}
+.loading-mark{font-size:clamp(1.6rem,5vw,2.4rem);color:var(--gold-500);filter:drop-shadow(0 0 14px rgba(224,189,107,.45));animation:emberPulse 2.8s ease-in-out infinite;}
+.loading-title{font-family:var(--font-display);font-weight:600;font-size:clamp(.95rem,2.6vw,1.3rem);letter-spacing:.14em;text-transform:uppercase;color:var(--parch-100);margin:0;}
+.progress-shell{width:min(440px,76%);}
+#progress-bar{position:relative;height:14px;border-radius:999px;overflow:hidden;background:var(--night-900);box-shadow:inset 0 1px 4px rgba(0,0,0,.9), inset 0 0 0 1px var(--gold-700);}
+#progress-fill{position:absolute;inset:0 auto 0 0;height:100%;width:0%;border-radius:999px;background:linear-gradient(180deg, var(--gold-300), var(--gold-500) 60%, var(--gold-600));box-shadow:0 0 12px -1px rgba(224,189,107,.7);transition:width 240ms var(--ease-stand);}
+#progress-fill::after{content:"";position:absolute;inset:0;border-radius:inherit;background:linear-gradient(90deg,transparent,rgba(255,247,224,.6),transparent);background-size:60% 100%;background-repeat:no-repeat;animation:sweep 1.6s linear infinite;}
+.progress-meta{display:flex;justify-content:space-between;align-items:baseline;margin-top:10px;font-family:var(--font-mono);font-size:.78rem;letter-spacing:.04em;}
+#progress-percent{color:var(--gold-300);font-weight:700;}
+#loading-status{color:var(--parch-400);font-family:var(--font-mono);font-size:.74rem;}
+
+#start-overlay{flex-direction:column;gap:clamp(10px,2.4vw,18px);cursor:pointer;}
+.start-mark{font-size:clamp(1.8rem,6vw,3rem);color:var(--gold-500);filter:drop-shadow(0 0 20px rgba(224,189,107,.5));animation:emberPulse 2.8s ease-in-out infinite;}
+.start-prompt{font-family:var(--font-display);font-weight:700;font-size:clamp(1.15rem,4.2vw,2rem);letter-spacing:.1em;line-height:1.15;color:var(--parch-100);margin:0;text-transform:uppercase;text-shadow:0 2px 14px rgba(0,0,0,.7);animation:breathe 2.6s ease-in-out infinite;}
+.start-sub{font-size:clamp(.8rem,2.2vw,1rem);color:var(--parch-300);max-width:30ch;margin:0;line-height:1.55;font-style:italic;}
+.start-hint{margin-top:.5em;font-family:var(--font-mono);font-size:.7rem;letter-spacing:.18em;text-transform:uppercase;color:var(--parch-400);}
+
+#drop-zone-state{padding:clamp(14px,3vw,30px);}
+#drop-zone{width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:clamp(8px,1.8vw,14px);text-align:center;border:2px dashed var(--gold-700);border-radius:8px;background:repeating-linear-gradient(45deg, rgba(240,216,148,.02) 0 6px, transparent 6px 14px);transition:border-color 240ms, background 240ms;padding:clamp(14px,4vw,34px);cursor:pointer;}
+#drop-zone.is-dragover{border-color:var(--gold-400);background:rgba(201,161,74,.08);box-shadow:var(--glow-gold) inset;}
+.drop-mark{font-size:clamp(1.6rem,5vw,2.4rem);color:var(--gold-500);line-height:1;}
+.drop-title{font-family:var(--font-display);font-weight:600;letter-spacing:.1em;text-transform:uppercase;font-size:clamp(.95rem,2.6vw,1.25rem);color:var(--parch-100);margin:0;}
+.drop-body{font-size:clamp(.8rem,2.1vw,.95rem);color:var(--parch-300);max-width:38ch;margin:0;line-height:1.55;}
+.drop-formats{font-family:var(--font-mono);font-size:.68rem;letter-spacing:.06em;color:var(--parch-400);margin-top:.3em;}
+
+.stage-chrome{position:absolute;z-index:5;display:flex;gap:8px;}
+.chrome-tr{top:clamp(14px,1.9vw,22px);right:clamp(14px,1.9vw,22px);}
+.icon-btn{
+  -webkit-appearance:none;appearance:none;cursor:pointer;min-width:44px;min-height:44px;display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:0 12px;border-radius:6px;
+  font-family:var(--font-display);font-size:.72rem;letter-spacing:.18em;text-transform:uppercase;color:var(--gold-300);
+  background:linear-gradient(180deg, rgba(40,28,16,.86), rgba(20,13,8,.9));border:1px solid var(--gold-700);
+  box-shadow:0 2px 10px rgba(0,0,0,.5), inset 0 1px 0 rgba(240,216,148,.14);backdrop-filter:blur(3px);
+  transition:border-color 140ms, color 140ms, transform 140ms, box-shadow 140ms;
+}
+.icon-btn:hover{color:var(--gold-300);border-color:var(--gold-500);box-shadow:var(--glow-gold);}
+.icon-btn:active{transform:translateY(1px) scale(.98);}
+.icon-btn:focus-visible{outline:none;box-shadow:0 0 0 2px var(--night-900),0 0 0 4px var(--gold-300);}
+.glyph{width:16px;height:16px;display:inline-block;position:relative;flex:none;}
+.glyph-fs::before,.glyph-fs::after{content:"";position:absolute;width:6px;height:6px;border:2px solid currentColor;}
+.glyph-fs::before{top:0;left:0;border-right:0;border-bottom:0;}
+.glyph-fs::after{bottom:0;right:0;border-left:0;border-top:0;}
+.glyph-fs i{position:absolute;width:6px;height:6px;border:2px solid currentColor;}
+.glyph-fs i:first-child{top:0;right:0;border-left:0;border-bottom:0;}
+.glyph-fs i:last-child{bottom:0;left:0;border-right:0;border-top:0;}
+.glyph-star{font-size:13px;line-height:1;color:var(--gold-400);}
+
+.toolbar{position:relative;z-index:1;display:flex;flex-wrap:wrap;gap:10px;justify-content:center;width:100%;max-width:1024px;}
+.controls-toggle-cb{position:absolute;opacity:0;pointer-events:none;}
+#controls-legend{
+  position:relative;z-index:1;width:min(560px,100%);margin:0 auto;border-radius:8px;text-align:left;overflow:hidden;
+  background:linear-gradient(180deg, rgba(36,26,16,.96), rgba(18,12,7,.97));border:1px solid var(--gold-700);
+  box-shadow:0 18px 50px rgba(0,0,0,.55), inset 0 1px 0 rgba(240,216,148,.18);
+  max-height:0;opacity:0;padding:0 18px;border-width:0 1px;transform:translateY(-6px);
+  transition:max-height 240ms var(--ease-stand), opacity 240ms, padding 240ms, border-width 240ms, transform 240ms;
+}
+.controls-toggle-cb:checked ~ #controls-legend{max-height:280px;opacity:1;padding:14px 18px 16px;border-width:1px;transform:none;}
+.legend-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+.legend-title{font-family:var(--font-display);font-weight:600;font-size:.74rem;letter-spacing:.22em;text-transform:uppercase;color:var(--gold-300);}
+.legend-close{cursor:pointer;color:var(--parch-400);font-family:var(--font-mono);font-size:1rem;line-height:1;width:24px;height:24px;display:flex;align-items:center;justify-content:center;border-radius:4px;}
+.legend-close:hover{color:var(--gold-300);background:rgba(240,216,148,.08);}
+.legend-row{display:flex;align-items:center;gap:12px;padding:7px 0;border-top:1px solid var(--border-faint);}
+.legend-row:first-of-type{border-top:0;}
+.legend-keys{display:flex;gap:4px;flex:none;}
+kbd{font-family:var(--font-mono);font-size:.66rem;color:var(--parch-100);min-width:22px;height:22px;padding:0 6px;display:inline-flex;align-items:center;justify-content:center;background:linear-gradient(180deg,#2c2013,#1a120a);border:1px solid var(--gold-700);border-radius:4px;box-shadow:0 1px 0 rgba(0,0,0,.6), inset 0 1px 0 rgba(240,216,148,.15);}
+.legend-desc{font-size:.82rem;color:var(--parch-200);line-height:1.35;}
+.legend-desc b{color:var(--parch-100);font-weight:700;}
+
+@keyframes sweep{0%{background-position:-60% 0;}100%{background-position:160% 0;}}
+@keyframes emberPulse{0%,100%{opacity:.78;filter:drop-shadow(0 0 10px rgba(224,189,107,.35));}50%{opacity:1;filter:drop-shadow(0 0 22px rgba(224,189,107,.6));}}
+@keyframes breathe{0%,100%{opacity:.78;}50%{opacity:1;}}
+@media (prefers-reduced-motion:reduce){.loading-mark,.start-mark,.start-prompt,#progress-fill::after{animation:none!important;}}
+@media (max-width:560px){.icon-btn span.txt{display:none;}.icon-btn{padding:0;min-width:44px;}.title-sub{letter-spacing:.22em;}}
+@media (max-height:560px) and (orientation:landscape){
+  body{padding:8px 12px;gap:8px;justify-content:center;}
+  .titlebar{display:flex;align-items:baseline;justify-content:center;gap:1em;}
+  .title-rule,.title-kicker{display:none;}
+  .title-main{font-size:clamp(.9rem,3.4vh,1.3rem);}
+  .stage{max-width:calc(133vh - 40px);}
+}
+:fullscreen .titlebar{display:none;}
+:fullscreen.stage{max-width:none;width:auto;height:100%;padding:0;border-radius:0;}
+:fullscreen .well{height:100%;width:auto;aspect-ratio:4/3;margin:0 auto;}
 </style>
 </head>
 <body>
-  <h1>Prince of Persia 2 &middot; The Shadow and the Flame</h1>
-  <canvas id="canvas" tabindex="0" oncontextmenu="event.preventDefault()"></canvas>
-  <div id="status">loading…</div>
-  <div id="sound-hint">🔊 Click or press any key to enable sound</div>
-  <script>
-    (function () {
-      var statusEl = document.getElementById('status');
-      window.Module = window.Module || {};
-      Module.canvas = document.getElementById('canvas');
-      Module.print = function (t) { console.log(t); };
-      Module.printErr = function (t) { console.error(t); };
-      Module.setStatus = function (t) {
-        if (!statusEl) return;
-        statusEl.textContent = t || '';
-        statusEl.style.visibility = t ? 'visible' : 'hidden';
-      };
-      Module.setStatus('loading…');
-      window.addEventListener('error', function () { Module.setStatus('error — see console'); });
+  <header class="titlebar">
+    <p class="title-kicker">Prince of Persia&nbsp;II</p>
+    <h1 class="title-main">The Shadow &amp; the Flame</h1>
+    <div class="title-rule"><span class="title-sub"><span class="title-star">✦</span></span></div>
+  </header>
 
-      // Browsers start audio suspended until a user gesture; SDL/Emscripten
-      // resumes the AudioContext on the first click or key. We don't gate the
-      // game on it — just show a hint and fade it once the player interacts
-      // (the gesture itself unlocks sound; the listener never preventDefaults,
-      // and the hint is pointer-events:none, so the click still reaches the game).
-      var hint = document.getElementById('sound-hint');
-      function dismissHint() {
-        if (hint) hint.classList.add('gone');
-        document.removeEventListener('pointerdown', dismissHint, true);
-        document.removeEventListener('keydown', dismissHint, true);
+  <main id="stage" class="stage" data-state="loading">
+    <span class="corner tl"></span><span class="corner tr"></span>
+    <span class="corner bl"></span><span class="corner br"></span>
+
+    <div class="well">
+      <canvas id="canvas" width="512" height="384" tabindex="0" aria-label="Game screen" oncontextmenu="event.preventDefault()"></canvas>
+
+      <div id="loading-state" class="overlay overlay-scrim" role="status" aria-live="polite">
+        <div class="loading-mark">✦</div>
+        <h2 class="loading-title">Unsealing the Manuscript</h2>
+        <div class="progress-shell">
+          <div id="progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+            <div id="progress-fill"></div>
+          </div>
+          <div class="progress-meta">
+            <span id="loading-status">Loading engine…</span>
+            <span id="progress-percent">0%</span>
+          </div>
+        </div>
+      </div>
+
+      <div id="start-overlay" class="overlay overlay-scrim" role="button" tabindex="0">
+        <div class="start-mark">✦</div>
+        <h2 class="start-prompt">Press Any Key<br />or Tap to Begin</h2>
+        <p class="start-sub">The palace waits in silence. Touch the screen to wake the music and step into the flame.</p>
+        <p class="start-hint">Sound begins on your first touch</p>
+      </div>
+
+      <div id="drop-zone-state" class="overlay overlay-scrim">
+        <label id="drop-zone" for="file-input">
+          <div class="drop-mark">✦</div>
+          <h2 class="drop-title">Bring Your Game Data</h2>
+          <p class="drop-body">Drop your <i>pop2-data.tar.gz</i> here — or choose it from your device. Nothing is uploaded; it stays in your browser.</p>
+          <span class="icon-btn" role="button" style="pointer-events:none;margin-top:6px;">Choose data archive…</span>
+          <input id="file-input" type="file" accept=".gz,.tgz,.tar" hidden />
+          <p class="drop-formats">Accepts pop2-data.tar.gz (built with tools/make-web-data.sh)</p>
+        </label>
+      </div>
+    </div>
+  </main>
+
+  <input id="controls-toggle-cb" class="controls-toggle-cb" type="checkbox" />
+  <nav class="toolbar" aria-label="Player controls">
+    <button id="fullscreen-toggle" class="icon-btn" type="button" aria-label="Toggle fullscreen" title="Fullscreen">
+      <span class="glyph glyph-fs"><i></i><i></i></span><span class="txt">Fullscreen</span>
+    </button>
+    <label id="controls-toggle" class="icon-btn" for="controls-toggle-cb" role="button" aria-label="Show controls" title="Controls">
+      <span class="glyph-star">✦</span><span class="txt">Controls</span>
+    </label>
+  </nav>
+  <div id="controls-legend" role="region" aria-label="Controls">
+    <div class="legend-head">
+      <span class="legend-title">Controls</span>
+      <label class="legend-close" for="controls-toggle-cb" role="button" aria-label="Dismiss">✕</label>
+    </div>
+    <div class="legend-row"><span class="legend-keys"><kbd>←</kbd><kbd>→</kbd><kbd>↑</kbd><kbd>↓</kbd></span><span class="legend-desc"><b>Move</b>, climb &amp; jump</span></div>
+    <div class="legend-row"><span class="legend-keys"><kbd>Shift</kbd></span><span class="legend-desc"><b>Careful step</b> · grab ledge · draw sword</span></div>
+    <div class="legend-row"><span class="legend-keys"><kbd>Esc</kbd></span><span class="legend-desc"><b>Menu</b> &amp; pause</span></div>
+  </div>
+
+  <!-- Shell wiring: drives #stage[data-state], the progress bar, the start gate
+       (which also unlocks audio), the data drop-zone (tar.gz → MEMFS), and the
+       fullscreen / controls chrome. Not game logic. -->
+  <script>
+  (function () {
+    var stage = document.getElementById('stage');
+    var fillEl = document.getElementById('progress-fill');
+    var pctEl = document.getElementById('progress-percent');
+    var loadStatus = document.getElementById('loading-status');
+    var startOverlay = document.getElementById('start-overlay');
+
+    function setState(s) { stage.setAttribute('data-state', s); }
+    function setProgress(frac, label) {
+      if (frac != null) {
+        var p = Math.max(0, Math.min(100, Math.round(frac * 100)));
+        fillEl.style.width = p + '%'; pctEl.textContent = p + '%';
+        document.getElementById('progress-bar').setAttribute('aria-valuenow', p);
       }
-      document.addEventListener('pointerdown', dismissHint, true);
-      document.addEventListener('keydown', dismissHint, true);
-    })();
+      if (label != null) loadStatus.textContent = label;
+    }
+    setState('loading');
+    setProgress(0, 'Loading engine…');
+
+    window.Module = window.Module || {};
+    Module.canvas = document.getElementById('canvas');
+    Module.print = function (t) { console.log(t); };
+    Module.printErr = function (t) { console.error(t); };
+    Module.setStatus = function (text) {
+      if (!text) return;
+      var m = text.match(/\((\d+)\s*\/\s*(\d+)\)/);
+      if (m) {
+        var x = +m[1], y = +m[2];
+        setProgress(y ? x / y : null,
+          'Fetching game data — ' + (x / 1048576).toFixed(1) + ' / ' + (y / 1048576).toFixed(1) + ' MB');
+      } else { setProgress(null, text); }
+    };
+
+    var started = false;
+    function startGame() {
+      if (started) return; started = true;
+      setState('loading'); setProgress(1, 'Awakening the palace…');
+      try { Module.callMain(['/data/app/CODE', '/data/pop2']); }
+      catch (e) { console.error(e); }
+    }
+    // The engine calls this on its first rendered frame — reveal the canvas
+    // exactly then, so the player never stares at a black "playing" screen.
+    Module.onFirstFrame = function () { setState('playing'); };
+
+    Module.onRuntimeInitialized = function () {
+      var hasData = false;
+      try { hasData = Module.FS.analyzePath('/data/app/CODE').exists; } catch (e) {}
+      setState(hasData ? 'start' : 'dropzone');   // preload → sound gate; else → picker
+    };
+
+    // Start gate (preload build): the first click/key starts the game, and the
+    // gesture itself unlocks audio (the context is created afterwards, running).
+    function startGate() {
+      if (stage.getAttribute('data-state') !== 'start') return;
+      startOverlay.removeEventListener('click', startGate);
+      document.removeEventListener('keydown', startGateKey, true);
+      startGame();
+    }
+    function startGateKey() { startGate(); }
+    startOverlay.addEventListener('click', startGate);
+    document.addEventListener('keydown', startGateKey, true);
+
+    // ---- data drop-zone (picker build): pop2-data.tar.gz → MEMFS ----
+    async function gunzip(bytes) {
+      var ds = new DecompressionStream('gzip');
+      var stream = new Blob([bytes]).stream().pipeThrough(ds);
+      return new Uint8Array(await new Response(stream).arrayBuffer());
+    }
+    function untar(bytes) {
+      var td = new TextDecoder(), files = [], off = 0;
+      var str = function (a, b) { return td.decode(bytes.subarray(a, b)).replace(/\0[\s\S]*$/, '').trim(); };
+      while (off + 512 <= bytes.length) {
+        var name = str(off, off + 100); if (!name) break;
+        var size = parseInt(str(off + 124, off + 136) || '0', 8) || 0;
+        var type = String.fromCharCode(bytes[off + 156]);
+        var prefix = str(off + 345, off + 500);
+        var full = (prefix ? prefix + '/' + name : name).replace(/^\.\//, '');
+        off += 512;
+        if (type === '0' || type === '\0' || type === '') files.push({ name: full, data: bytes.subarray(off, off + size) });
+        off += Math.ceil(size / 512) * 512;
+      }
+      return files;
+    }
+    function mkdirp(path) {
+      var parts = path.split('/').filter(Boolean), cur = '';
+      for (var i = 0; i < parts.length; i++) { cur += '/' + parts[i]; try { Module.FS.mkdir(cur); } catch (e) {} }
+    }
+    async function loadData(file) {
+      try {
+        setState('loading'); setProgress(0.05, 'Reading ' + file.name + '…');
+        var bytes = new Uint8Array(await file.arrayBuffer());
+        if (/\.t?gz$/i.test(file.name)) { setProgress(0.3, 'Decompressing…'); bytes = await gunzip(bytes); }
+        setProgress(0.6, 'Unpacking…');
+        var files = untar(bytes);
+        if (!files.length) { setState('dropzone'); alert('Not a tar archive — expected pop2-data.tar.gz'); return; }
+        for (var i = 0; i < files.length; i++) {
+          var dst = '/data/' + files[i].name;
+          mkdirp(dst.slice(0, dst.lastIndexOf('/')));
+          Module.FS.writeFile(dst, files[i].data);
+        }
+        if (!Module.FS.analyzePath('/data/app/CODE').exists) {
+          setState('dropzone'); alert('Archive has no app/CODE — expected app/, data/, pop2/'); return;
+        }
+        setProgress(1, 'Starting…');
+        startGame();   // the file pick was the user gesture → audio is authorized
+      } catch (e) { setState('dropzone'); console.error(e); alert('Failed to load data: ' + e); }
+    }
+    var fileInput = document.getElementById('file-input');
+    if (fileInput) fileInput.addEventListener('change', function (e) { if (e.target.files[0]) loadData(e.target.files[0]); });
+    var dz = document.getElementById('drop-zone');
+    if (dz) {
+      ['dragenter', 'dragover'].forEach(function (ev) { dz.addEventListener(ev, function (e) { e.preventDefault(); dz.classList.add('is-dragover'); }); });
+      ['dragleave', 'drop'].forEach(function (ev) { dz.addEventListener(ev, function (e) { e.preventDefault(); dz.classList.remove('is-dragover'); }); });
+      dz.addEventListener('drop', function (e) { if (e.dataTransfer.files[0]) loadData(e.dataTransfer.files[0]); });
+    }
+
+    // ---- chrome: fullscreen + Esc-closes-controls ----
+    var fsBtn = document.getElementById('fullscreen-toggle');
+    if (fsBtn) fsBtn.addEventListener('click', function () {
+      if (!document.fullscreenElement) (stage.requestFullscreen || stage.webkitRequestFullscreen).call(stage);
+      else (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+    });
+    var cb = document.getElementById('controls-toggle-cb');
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && cb && cb.checked) cb.checked = false; });
+  })();
   </script>
+
   {{{ SCRIPT }}}
 </body>
 </html>

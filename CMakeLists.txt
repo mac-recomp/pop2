@@ -63,14 +63,16 @@ if(EMSCRIPTEN)
     # or ship the engine alone and let the page's file picker load the user's own
     # game-data archive into MEMFS, then start the guest via callMain.
     option(POP2_WASM_NO_PRELOAD "Load game data via the in-page file picker instead of bundling it" OFF)
-    if(POP2_WASM_NO_PRELOAD)
-        set(POP2_DATA_OPTS
-            "SHELL:--shell-file ${CMAKE_SOURCE_DIR}/web/shell-picker.html"
-            "-sINVOKE_RUN=0"
-            "-sEXPORTED_RUNTIME_METHODS=callMain,FS")
-    else()
-        set(POP2_DATA_OPTS
-            "SHELL:--shell-file ${CMAKE_SOURCE_DIR}/web/shell.html"
+    # Both modes use the same shell (it drives #stage[data-state]) and start the
+    # guest via callMain. The default build also bundles the data via
+    # --preload-file; the no-preload build leaves it out and the shell's
+    # drop-zone loads the player's archive into MEMFS.
+    set(POP2_DATA_OPTS
+        "SHELL:--shell-file ${CMAKE_SOURCE_DIR}/web/shell.html"
+        "-sINVOKE_RUN=0"
+        "-sEXPORTED_RUNTIME_METHODS=callMain,FS")
+    if(NOT POP2_WASM_NO_PRELOAD)
+        list(APPEND POP2_DATA_OPTS
             "SHELL:--preload-file ${CMAKE_BINARY_DIR}/assets/app@/data/app"
             "SHELL:--preload-file ${CMAKE_BINARY_DIR}/assets/data@/data/data"
             "SHELL:--preload-file ${CMAKE_BINARY_DIR}/assets/vol@/data/pop2")

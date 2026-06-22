@@ -362,6 +362,15 @@ void present() {
     SDL_RenderClear(s_ren);
     SDL_RenderCopy(s_ren, s_tex, nullptr, nullptr);
     SDL_RenderPresent(s_ren);
+#ifdef __EMSCRIPTEN__
+    // Tell the web shell the moment real pixels first appear, so it can drop the
+    // loading overlay exactly when the game becomes visible (not before).
+    static bool s_first_frame = true;
+    if (s_first_frame) {
+        s_first_frame = false;
+        EM_ASM({ if (typeof Module !== 'undefined' && Module.onFirstFrame) Module.onFirstFrame(); });
+    }
+#endif
     static int s_frame = 0;
     maybe_dump(++s_frame);
     // Optional kid-state trace: POP2_DUMP_KID=N prints the player struct

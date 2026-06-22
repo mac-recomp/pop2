@@ -16,3 +16,12 @@ Module['preRun'].push(function () {
     }
   }
 });
+
+// The build is INVOKE_RUN=0 (the browser shell starts the guest via callMain
+// after the start gesture / data load). Headless Node runs have no shell, so
+// start the guest directly there. In the browser `process` is undefined.
+if (typeof process !== 'undefined' && process.versions && process.versions.node) {
+  Module['onRuntimeInitialized'] = function () {
+    Module['callMain'](['/data/app/CODE', '/data/pop2']);
+  };
+}
