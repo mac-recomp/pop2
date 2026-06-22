@@ -42,6 +42,9 @@ EM_JS(void, pop2_persist_root, (), {
         try { if (FS.isFile(FS.stat(p).mode)) FS.writeFile('/data/persist/' + f, FS.readFile(p)); } catch (e) {}
       }
     } catch (e) {}
+    // The options file (Prince2.opt) lives in the Data subdir, not the volume
+    // root the loop above walks — mirror it too so settings survive a reload.
+    try { FS.writeFile('/data/persist/Prince2.opt', FS.readFile('/data/pop2/Data/Prince2.opt')); } catch (e) {}
     FS.syncfs(false, function () {});
   }, 800);
 });

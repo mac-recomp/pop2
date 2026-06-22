@@ -31,7 +31,9 @@ EM_ASYNC_JS(void, pop2_persist_init, (), {
     for (var i = 0; i < names.length; i++) {
       var f = names[i];
       if (f === '.' || f === '..') continue;
-      try { FS.writeFile('/data/pop2/' + f, FS.readFile('/data/persist/' + f)); } catch (e) {}
+      // Prince2.opt is the options file in the Data subdir, not a root save.
+      var dst = (f === 'Prince2.opt') ? '/data/pop2/Data/Prince2.opt' : '/data/pop2/' + f;
+      try { FS.writeFile(dst, FS.readFile('/data/persist/' + f)); } catch (e) {}
     }
   } catch (e) {}
 });
