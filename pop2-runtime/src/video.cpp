@@ -169,6 +169,7 @@ bool s_pad_keys[4];             // left, right, up, down logical state
 
 bool s_fake_cmd = false;   // POP2_AUTOKEY ":cmd" holds a synthetic cmdKey
 bool s_fake_shift = false; // synthetic shiftKey while autokey holds vk 0x38
+bool s_fake_ctrl = false;  // synthetic controlKey while the touch Strike button is held
 
 uint16_t mac_modifiers() {
     SDL_Keymod m = SDL_GetModState();
@@ -181,6 +182,7 @@ uint16_t mac_modifiers() {
     if (m & KMOD_CTRL) r |= 0x1000;        // controlKey
     if (s_fake_cmd) r |= 0x0100;
     if (s_fake_shift) r |= 0x0200;
+    if (s_fake_ctrl) r |= 0x1000;          // touch Strike acts as Control
     if (s_pad_shift) r |= 0x0200;          // gamepad A acts as Shift
     return r;
 }
@@ -1124,6 +1126,7 @@ extern "C" EMSCRIPTEN_KEEPALIVE void pop2_touch_key(int vk_, int down) {
         case 0x7E: ch = 30; break; case 0x7D: ch = 31; break;   // up / down
         case 0x35: ch = 27; break; case 0x24: ch = 13; break;   // esc / return
     }
+    if (vk == 0x3B) s_fake_ctrl = (down != 0);   // Control (sword strike): also flag the modifier
     if (down) {
         s_keymap[vk >> 3] |= uint8_t(1u << (vk & 7));
         push_event(3, uint32_t(vk << 8) | uint32_t(ch));

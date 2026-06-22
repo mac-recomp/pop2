@@ -237,8 +237,11 @@ kbd{font-family:var(--font-mono);font-size:.66rem;color:var(--parch-100);min-wid
 }
 .tc-btn.held{background:linear-gradient(180deg,var(--gold-500),var(--gold-700));color:var(--night-900);box-shadow:var(--glow-gold);}
 .tc-up{grid-area:1/2/2/3;} .tc-left{grid-area:2/1/3/2;} .tc-right{grid-area:2/3/3/4;} .tc-down{grid-area:3/2/4/3;}
-.tc-pad .tc-btn{font-size:1.9rem;line-height:1;}
-.tc-up,.tc-down{font-size:2.3rem;}   /* ▲▼ glyphs render smaller than ◀▶ — compensate to match */
+/* d-pad arrows: one CSS triangle rotated per direction → all four pixel-identical */
+.tc-pad .tc-btn{color:transparent;font-size:0;}
+.tc-pad .tc-btn::after{content:"";display:block;width:0;height:0;border-left:13px solid transparent;border-right:13px solid transparent;border-bottom:20px solid var(--gold-300);filter:drop-shadow(0 1px 1px rgba(0,0,0,.5));}
+.tc-up::after{transform:rotate(0deg);} .tc-right::after{transform:rotate(90deg);}
+.tc-down::after{transform:rotate(180deg);} .tc-left::after{transform:rotate(270deg);}
 .tc-act{width:clamp(58px,16vw,76px);height:clamp(58px,16vw,76px);border-radius:50%;font-size:.6rem;letter-spacing:.05em;text-transform:uppercase;text-align:center;line-height:1.1;}
 /* (legend-assists/legend-saves now sit in .legend-section grid columns) */
 .assist-row{display:flex;align-items:center;gap:9px;padding:6px 0;font-size:.8rem;color:var(--parch-200);cursor:pointer;}
@@ -330,6 +333,7 @@ body.has-saved-data .forget-data{display:block;}
         </div>
         <div class="tc-actions">
           <button class="tc-btn tc-act" type="button" data-vk="56" aria-label="Careful step, grab, draw sword">Grab<br>Sword</button>
+          <button class="tc-btn tc-act" type="button" data-vk="59" aria-label="Strike with sword">Strike</button>
           <button class="tc-btn tc-act" type="button" data-vk="53" aria-label="Menu">Menu</button>
         </div>
       </div>
@@ -370,6 +374,7 @@ body.has-saved-data .forget-data{display:block;}
           <span class="legend-title">Controls</span>
           <div class="legend-row"><span class="legend-keys"><kbd>←</kbd><kbd>→</kbd><kbd>↑</kbd><kbd>↓</kbd></span><span class="legend-desc"><b>Move</b>, climb &amp; jump</span></div>
           <div class="legend-row"><span class="legend-keys"><kbd>Shift</kbd></span><span class="legend-desc"><b>Careful step</b> · grab ledge · draw sword</span></div>
+          <div class="legend-row"><span class="legend-keys"><kbd>Ctrl</kbd></span><span class="legend-desc"><b>Strike</b> — attack with the sword</span></div>
           <div class="legend-row"><span class="legend-keys"><kbd>Esc</kbd></span><span class="legend-desc">In-game <b>menu</b> &amp; pause</span></div>
         </div>
         <div class="legend-section">
