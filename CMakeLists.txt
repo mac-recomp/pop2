@@ -49,11 +49,20 @@ if(EMSCRIPTEN)
     file(CREATE_LINK "${POP2_RSRC_DIR}" "${CMAKE_BINARY_DIR}/assets/data" SYMBOLIC)
     file(CREATE_LINK "${POP2_VOL_DIR}"  "${CMAKE_BINARY_DIR}/assets/vol"  SYMBOLIC)
 
+    # Stack-switching for the blocking main loop: JSPI (engine-native, near-zero
+    # overhead, Chromium 137+) or Asyncify (universal, adds code instrumentation
+    # plus a per-yield cost). Default to Asyncify for broad browser support.
+    option(POP2_WASM_JSPI "Use JSPI instead of Asyncify (Chromium 137+)" OFF)
+    if(POP2_WASM_JSPI)
+        set(POP2_STACK_SWITCH "-sJSPI")
+    else()
+        set(POP2_STACK_SWITCH "-sASYNCIFY" "-sASYNCIFY_STACK_SIZE=1048576")
+    endif()
+
     target_compile_options(pop2 PRIVATE "-sUSE_SDL=2")
     target_link_options(pop2 PRIVATE
         "-sUSE_SDL=2"
-        "-sASYNCIFY"
-        "-sASYNCIFY_STACK_SIZE=1048576"
+        ${POP2_STACK_SWITCH}
         "-sALLOW_MEMORY_GROWTH=1"
         "-sINITIAL_MEMORY=268435456"   # 256 MB: 16 MB guest + ~36 MB MEMFS + SDL
         "-sSTACK_SIZE=5242880"         # deep recompiled C++ call chains

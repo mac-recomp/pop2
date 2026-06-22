@@ -986,12 +986,11 @@ void video_pump() {
         s_last_present = now;
         present();
 #ifdef __EMSCRIPTEN__
-        // Asyncify yield (~once per displayed frame): hand control back to the
-        // browser so the canvas composites and timers/events run. video_pump()
-        // is the universal pump — every event poll (WaitNextEvent/GetNextEvent)
-        // and the Ticks busy-wait pacing loop reach it — so the tab can never
-        // lock up regardless of which guest loop is spinning. The recompiled
-        // 150k-line main loop is never restructured; it just unwinds here.
+        // Yield the frame to the browser so the canvas composites and timers /
+        // events run. video_pump() is the universal pump (every event poll and
+        // the Ticks busy-wait reach it), so the tab never locks up whichever
+        // guest loop is spinning — and the recompiled main loop is never
+        // restructured; it just unwinds here (Asyncify) or stack-switches (JSPI).
         emscripten_sleep(1);
 #endif
     }

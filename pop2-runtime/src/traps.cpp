@@ -2844,11 +2844,15 @@ static void tb_trap(Cpu& cpu, uint16_t op) {
             mem_write16(evp + 12, uint16_t(ev.where_h));
             mem_write16(evp + 14, ev.modifiers);
         }
-#ifdef __EMSCRIPTEN__
-        if (!got) emscripten_sleep(1);  // Asyncify: yield while idle-waiting
-#else
+#ifndef __EMSCRIPTEN__
         if (!got) std::this_thread::sleep_for(std::chrono::milliseconds(1));
 #endif
+        // No idle sleep under Emscripten: WaitNextEvent already runs through
+        // video_pump(), which yields to the browser once per frame at its
+        // present throttle. An extra emscripten_sleep here fired on every idle
+        // poll, and the browser's ~4ms setTimeout clamp stacked several of them
+        // per frame — capping the game near 40fps. The frame-paced yield alone
+        // holds ~60 and keeps the tab responsive.
         ret_w(cpu, got ? 0x0100 : 0);
         return;
     }
