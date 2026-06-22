@@ -598,7 +598,19 @@ void video_pump() {
                                          // not block on vsync or recurse
     if (s_state == State::Uninit)
         s_state = init_video() ? State::On : State::Off;
-    if (s_state == State::Off) return;
+    if (s_state == State::Off) {
+#ifdef __EMSCRIPTEN__
+        // Headless wasm (Node smoke: SDL absent, so there is no present-throttle
+        // clock to pace the yield). Still hand control back to the event loop
+        // periodically so the guest's main loop stays cooperative — otherwise it
+        // spins synchronously and starves timers / exported-function calls.
+        // Counted, since there is no SDL tick to time against. The browser build
+        // is State::On and never reaches here.
+        static uint32_t s_idle_n = 0;
+        if (++s_idle_n >= 64) { s_idle_n = 0; pop2_yield_to_browser(); }
+#endif
+        return;
+    }
 
 #ifdef __EMSCRIPTEN__
     // Web assists (toggled from the shell). Boost: when a level resets capacity
