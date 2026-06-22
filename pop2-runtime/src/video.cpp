@@ -8,6 +8,19 @@
 #include <SDL2/SDL.h>
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
+// Yield one macrotask to the browser without setTimeout's ~4ms clamp, using a
+// MessageChannel ping (the classic clamp-free "setImmediate"). Returns to the
+// event loop so the canvas composites and input/timers run, then resumes ASAP.
+// Works under both Asyncify (auto-added to ASYNCIFY_IMPORTS) and JSPI.
+EM_ASYNC_JS(void, pop2_yield_to_browser, (), {
+  if (!globalThis.__pop2yield) {
+    const ch = new MessageChannel();
+    const q = [];
+    ch.port1.onmessage = () => { const r = q.shift(); if (r) r(); };
+    globalThis.__pop2yield = () => new Promise((res) => { q.push(res); ch.port2.postMessage(0); });
+  }
+  await globalThis.__pop2yield();
+});
 #endif
 
 #include <cstdlib>
@@ -986,12 +999,25 @@ void video_pump() {
         s_last_present = now;
         present();
 #ifdef __EMSCRIPTEN__
-        // Yield the frame to the browser so the canvas composites and timers /
-        // events run. video_pump() is the universal pump (every event poll and
+        // Yield once per displayed frame so the canvas composites and input /
+        // timers run. video_pump() is the universal pump (every event poll and
         // the Ticks busy-wait reach it), so the tab never locks up whichever
-        // guest loop is spinning — and the recompiled main loop is never
-        // restructured; it just unwinds here (Asyncify) or stack-switches (JSPI).
-        emscripten_sleep(1);
+        // guest loop is spinning, and the recompiled main loop is never
+        // restructured. MessageChannel yield avoids setTimeout's ~4ms clamp.
+        pop2_yield_to_browser();
+        static const bool s_fps_trace =
+            EM_ASM_INT({ return (typeof location !== 'undefined' &&
+                                  location.hash.indexOf('fps') >= 0) ? 1 : 0; });
+        if (s_fps_trace) {
+            static uint32_t s_fps_t0 = 0, s_fps_n = 0;
+            s_fps_n++;
+            uint32_t fnow = SDL_GetTicks();
+            if (fnow - s_fps_t0 >= 1000) {
+                std::fprintf(stderr, "[fps] %u present/s\n",
+                             s_fps_n * 1000u / (fnow - s_fps_t0));
+                s_fps_t0 = fnow; s_fps_n = 0;
+            }
+        }
 #endif
     }
 }
