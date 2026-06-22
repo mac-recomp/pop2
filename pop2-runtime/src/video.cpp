@@ -1153,6 +1153,25 @@ extern "C" EMSCRIPTEN_KEEPALIVE void pop2_load_slot(const char* name) {
     fs_set_save_override(name ? name : "");
     pop2_menu_cmd('O');
 }
+
+// Convert the current 8-bit framebuffer (FB_BASE) through the live palette into
+// RGBA, for the web save-manager's slot thumbnails. Returns a static buffer of
+// kWidth*kHeight*4 bytes that JS copies into an ImageData. ARGB s_pal entries are
+// emitted as explicit r,g,b,a so the byte order is right regardless of endianness.
+extern "C" EMSCRIPTEN_KEEPALIVE const uint8_t* pop2_fb_rgba() {
+    static uint8_t rgba[kWidth * kHeight * 4];
+    const uint8_t* fb = g_mem + FB_BASE;
+    for (int i = 0; i < kWidth * kHeight; i++) {
+        uint32_t p = s_pal[fb[i]];
+        rgba[i * 4 + 0] = uint8_t((p >> 16) & 0xFF);
+        rgba[i * 4 + 1] = uint8_t((p >> 8) & 0xFF);
+        rgba[i * 4 + 2] = uint8_t(p & 0xFF);
+        rgba[i * 4 + 3] = 0xFF;
+    }
+    return rgba;
+}
+extern "C" EMSCRIPTEN_KEEPALIVE int pop2_fb_w() { return kWidth; }
+extern "C" EMSCRIPTEN_KEEPALIVE int pop2_fb_h() { return kHeight; }
 #endif
 
 // ---- audio sink: SDL queued audio fed by the synth's double buffers ----

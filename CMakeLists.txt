@@ -70,7 +70,7 @@ if(EMSCRIPTEN)
     set(POP2_DATA_OPTS
         "SHELL:--shell-file ${CMAKE_SOURCE_DIR}/web/shell.html"
         "-sINVOKE_RUN=0"
-        "-sEXPORTED_RUNTIME_METHODS=callMain,FS,ccall")
+        "-sEXPORTED_RUNTIME_METHODS=callMain,FS,ccall,HEAPU8")
     if(NOT POP2_WASM_NO_PRELOAD)
         list(APPEND POP2_DATA_OPTS
             "SHELL:--preload-file ${CMAKE_BINARY_DIR}/assets/app@/data/app"

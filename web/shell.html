@@ -239,7 +239,9 @@ kbd{font-family:var(--font-mono);font-size:.66rem;color:var(--parch-100);min-wid
 .save-do:hover{background:rgba(240,216,148,.22);}
 .save-list{list-style:none;margin:0;padding:0;max-height:168px;overflow-y:auto;display:flex;flex-direction:column;gap:4px;}
 .save-empty{font-size:.78rem;color:var(--parch-400);font-style:italic;padding:3px 1px;}
-.save-item{display:flex;align-items:center;gap:8px;padding:4px 4px 4px 8px;border-radius:5px;background:rgba(0,0,0,.22);}
+.save-item{display:flex;align-items:center;gap:8px;padding:4px;border-radius:5px;background:rgba(0,0,0,.22);}
+.save-thumb{flex:none;width:52px;height:39px;border-radius:3px;object-fit:cover;background:#000;border:1px solid var(--border-faint);}
+.save-thumb.no-thumb{background:repeating-linear-gradient(45deg,rgba(240,216,148,.06) 0 4px,transparent 4px 8px);}
 .save-item-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.82rem;color:var(--parch-100);}
 .save-level{flex:none;font-family:var(--font-mono);font-size:.68rem;letter-spacing:.02em;color:var(--gold-300);opacity:.85;white-space:nowrap;}
 .save-load{flex:none;background:rgba(240,216,148,.1);border:1px solid var(--border-faint);color:var(--gold-300);font-family:var(--font-mono);font-size:.72rem;border-radius:4px;padding:3px 10px;cursor:pointer;}
@@ -551,6 +553,36 @@ body.has-saved-data .forget-data{display:block;}
     var saveName = document.getElementById('save-name');
     var saveBtn  = document.getElementById('save-btn');
     var saveList = document.getElementById('save-list');
+    // ---- slot thumbnails: snapshot the framebuffer at save time → IndexedDB ----
+    function captureThumb() {
+      if (!Module._pop2_fb_rgba) return null;
+      try {
+        var W = Module._pop2_fb_w ? Module._pop2_fb_w() : 512;
+        var H = Module._pop2_fb_h ? Module._pop2_fb_h() : 384;
+        var ptr = Module._pop2_fb_rgba();
+        var view = Module.HEAPU8.subarray(ptr, ptr + W * H * 4);
+        var src = document.createElement('canvas'); src.width = W; src.height = H;
+        src.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(view), W, H), 0, 0);
+        var TW = 128, TH = 96, th = document.createElement('canvas'); th.width = TW; th.height = TH;
+        th.getContext('2d').drawImage(src, 0, 0, TW, TH);
+        return th.toDataURL('image/jpeg', 0.7);
+      } catch (e) { return null; }
+    }
+    function thumbTx(mode, fn) {
+      return new Promise(function (res, rej) {
+        var open = indexedDB.open('pop2-thumbs', 1);
+        open.onupgradeneeded = function () { open.result.createObjectStore('thumbs'); };
+        open.onerror = function () { rej(open.error); };
+        open.onsuccess = function () {
+          var db = open.result, tx = db.transaction('thumbs', mode), rq = fn(tx.objectStore('thumbs'));
+          tx.oncomplete = function () { res(rq && rq.result); db.close(); };
+          tx.onerror = function () { rej(tx.error); };
+        };
+      });
+    }
+    var thumbGet = function (name) { return thumbTx('readonly', function (s) { return s.get(name); }).catch(function () { return null; }); };
+    var thumbPut = function (name, url) { return thumbTx('readwrite', function (s) { s.put(url, name); }).catch(function () {}); };
+    var thumbDel = function (name) { return thumbTx('readwrite', function (s) { s.delete(name); }).catch(function () {}); };
     function listSaves() {
       if (!Module.ccall) return [];
       var s = '';
@@ -577,6 +609,9 @@ body.has-saved-data .forget-data{display:block;}
       slots.forEach(function (s) {
         var n = s.name;
         var li = document.createElement('li'); li.className = 'save-item';
+        var img = document.createElement('img'); img.className = 'save-thumb'; img.alt = '';
+        thumbGet(n).then(function (url) { if (url) img.src = url; else img.classList.add('no-thumb'); });
+        li.appendChild(img);
         var nm = document.createElement('span'); nm.className = 'save-item-name';
         nm.textContent = n; nm.title = n;
         li.appendChild(nm);
@@ -596,6 +631,7 @@ body.has-saved-data .forget-data{display:block;}
           try { Module.FS.unlink('/data/pop2/' + n); } catch (e) {}
           try { Module.FS.unlink('/data/persist/' + n); } catch (e) {}
           try { Module.FS.syncfs(false, function () {}); } catch (e) {}
+          thumbDel(n);
           renderSaves();
         });
         li.appendChild(load); li.appendChild(del);
@@ -604,7 +640,9 @@ body.has-saved-data .forget-data{display:block;}
     }
     function doSave() {
       var n = ((saveName && saveName.value) || '').trim() || 'Saved Game';
+      var thumb = captureThumb();                      // snapshot the live scene now
       try { Module.ccall('pop2_save_slot', 'void', ['string'], [n]); } catch (e) {}
+      if (thumb) thumbPut(n, thumb);
       // the guest writes the file a few frames later (it runs the injected Cmd+S
       // on its next event-loop turns), so refresh the list once it has landed.
       setTimeout(renderSaves, 700);
