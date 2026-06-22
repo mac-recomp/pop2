@@ -59,6 +59,23 @@ if(EMSCRIPTEN)
         set(POP2_STACK_SWITCH "-sASYNCIFY" "-sASYNCIFY_STACK_SIZE=1048576")
     endif()
 
+    # Data delivery: bundle it via --preload-file (default; convenient for dev),
+    # or ship the engine alone and let the page's file picker load the user's own
+    # game-data archive into MEMFS, then start the guest via callMain.
+    option(POP2_WASM_NO_PRELOAD "Load game data via the in-page file picker instead of bundling it" OFF)
+    if(POP2_WASM_NO_PRELOAD)
+        set(POP2_DATA_OPTS
+            "SHELL:--shell-file ${CMAKE_SOURCE_DIR}/web/shell-picker.html"
+            "-sINVOKE_RUN=0"
+            "-sEXPORTED_RUNTIME_METHODS=callMain,FS")
+    else()
+        set(POP2_DATA_OPTS
+            "SHELL:--shell-file ${CMAKE_SOURCE_DIR}/web/shell.html"
+            "SHELL:--preload-file ${CMAKE_BINARY_DIR}/assets/app@/data/app"
+            "SHELL:--preload-file ${CMAKE_BINARY_DIR}/assets/data@/data/data"
+            "SHELL:--preload-file ${CMAKE_BINARY_DIR}/assets/vol@/data/pop2")
+    endif()
+
     target_compile_options(pop2 PRIVATE "-sUSE_SDL=2")
     target_link_options(pop2 PRIVATE
         "-sUSE_SDL=2"
@@ -72,11 +89,8 @@ if(EMSCRIPTEN)
         # SHELL: keeps CMake from de-duplicating the repeated --preload-file /
         # --pre-js flag tokens (de-dup silently drops the 2nd mapping, leaving
         # it dangling as a bogus input file).
-        "SHELL:--shell-file ${CMAKE_SOURCE_DIR}/web/shell.html"
         "SHELL:--pre-js ${CMAKE_SOURCE_DIR}/web/pre.js"
-        "SHELL:--preload-file ${CMAKE_BINARY_DIR}/assets/app@/data/app"
-        "SHELL:--preload-file ${CMAKE_BINARY_DIR}/assets/data@/data/data"
-        "SHELL:--preload-file ${CMAKE_BINARY_DIR}/assets/vol@/data/pop2"
+        ${POP2_DATA_OPTS}
     )
     set_target_properties(pop2 PROPERTIES SUFFIX ".html")
 else()
