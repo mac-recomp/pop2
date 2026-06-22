@@ -453,8 +453,11 @@ static bool is_pop2_save(const fs::path& p) {
     return bool(f) && std::memcmp(magic, "POP2", 4) == 0;
 }
 
+#ifdef __EMSCRIPTEN__
 // The saved level is a big-endian uint16 at offset 0x42. Returns 1..14, or 0
 // when unreadable or out of range (e.g. the oversized special-scene saves).
+// Only the web slot list (pop2_list_saves) needs it — keep it out of native
+// builds, where it would be an unused static.
 static int read_save_level(const fs::path& p) {
     std::ifstream f(p, std::ios::binary);
     f.seekg(0x42);
@@ -464,6 +467,7 @@ static int read_save_level(const fs::path& p) {
     int lvl = (int(b[0]) << 8) | int(b[1]);
     return (lvl >= 1 && lvl <= 14) ? lvl : 0;
 }
+#endif
 
 // First saved-game file in the game root, or "". POP2_OPEN_SAVE=<leaf name>
 // picks that save when several exist.
