@@ -218,6 +218,10 @@ kbd{font-family:var(--font-mono);font-size:.66rem;color:var(--parch-100);min-wid
 .tc-btn.held{background:linear-gradient(180deg,var(--gold-500),var(--gold-700));color:var(--night-900);box-shadow:var(--glow-gold);}
 .tc-up{grid-area:1/2/2/3;} .tc-left{grid-area:2/1/3/2;} .tc-right{grid-area:2/3/3/4;} .tc-down{grid-area:3/2/4/3;}
 .tc-act{width:clamp(58px,16vw,76px);height:clamp(58px,16vw,76px);border-radius:50%;font-size:.6rem;letter-spacing:.05em;text-transform:uppercase;text-align:center;line-height:1.1;}
+.legend-assists{margin-top:10px;padding-top:10px;border-top:1px solid var(--border-faint);}
+.legend-assists .legend-title{display:block;margin-bottom:6px;}
+.assist-row{display:flex;align-items:center;gap:9px;padding:6px 0;font-size:.8rem;color:var(--parch-200);cursor:pointer;}
+.assist-row input{accent-color:var(--gold-500);width:15px;height:15px;flex:none;}
 </style>
 </head>
 <body>
@@ -308,6 +312,11 @@ kbd{font-family:var(--font-mono);font-size:.66rem;color:var(--parch-100);min-wid
     <div class="legend-row"><span class="legend-keys"><kbd>←</kbd><kbd>→</kbd><kbd>↑</kbd><kbd>↓</kbd></span><span class="legend-desc"><b>Move</b>, climb &amp; jump</span></div>
     <div class="legend-row"><span class="legend-keys"><kbd>Shift</kbd></span><span class="legend-desc"><b>Careful step</b> · grab ledge · draw sword</span></div>
     <div class="legend-row"><span class="legend-keys"><kbd>Esc</kbd></span><span class="legend-desc"><b>Menu</b> &amp; pause</span></div>
+    <div class="legend-assists">
+      <span class="legend-title">Assists</span>
+      <label class="assist-row"><input type="checkbox" id="assist-invincible" /><span>Invincibility — never lose health</span></label>
+      <label class="assist-row"><input type="checkbox" id="assist-hp" /><span>Start each level with 6 health (instead of 3)</span></label>
+    </div>
   </div>
 
   <!-- Shell wiring: drives #stage[data-state], the progress bar, the start gate
@@ -465,6 +474,12 @@ kbd{font-family:var(--font-mono);font-size:.66rem;color:var(--parch-100);min-wid
     if (tt) tt.addEventListener('click', function () {
       tt.classList.toggle('active', document.body.classList.toggle('force-touch'));
     });
+
+    // ---- assists (invincibility / extra health) ----
+    var inv = document.getElementById('assist-invincible');
+    if (inv) inv.addEventListener('change', function () { if (Module._pop2_set_invincible) Module._pop2_set_invincible(inv.checked ? 1 : 0); });
+    var hpb = document.getElementById('assist-hp');
+    if (hpb) hpb.addEventListener('change', function () { if (Module._pop2_set_hp_boost) Module._pop2_set_hp_boost(hpb.checked ? 6 : 0); });
 
     // ---- on-screen touch controls → injected Mac key presses ----
     function touchKey(vk, down) { if (Module._pop2_touch_key) Module._pop2_touch_key(vk, down ? 1 : 0); }

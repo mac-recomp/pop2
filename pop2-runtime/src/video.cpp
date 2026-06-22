@@ -54,6 +54,10 @@ const bool s_pal_init = [] {
     return true;
 }();
 uint8_t s_keymap[16];           // Mac KeyMap bits
+#ifdef __EMSCRIPTEN__
+int s_hp_boost = 0;             // web assist: minimum starting HP (0 = off)
+bool s_invincible = false;      // web assist: pin current HP = max
+#endif
 bool s_button = false;
 int16_t s_mouse_h = SCREEN_W / 2, s_mouse_v = SCREEN_H / 2;
 uint32_t s_last_present = 0;    // SDL_GetTicks of last frame
@@ -596,6 +600,21 @@ void video_pump() {
         s_state = init_video() ? State::On : State::Off;
     if (s_state == State::Off) return;
 
+#ifdef __EMSCRIPTEN__
+    // Web assists (toggled from the shell). Boost: when a level resets capacity
+    // to the default (max < N), raise max to N and top current HP up to N — so
+    // each level starts with N, while potions still grow max above N and normal
+    // damage still applies within the level. Invincible: pin current HP = max.
+    if (s_hp_boost > 0) {
+        uint16_t mx = mem_read16(0x080000u - 20534);     // max HP
+        if (mx < uint16_t(s_hp_boost)) {
+            mem_write16(0x080000u - 20534, uint16_t(s_hp_boost));
+            mem_write16(0x080000u - 20536, uint16_t(s_hp_boost));  // current HP
+        }
+    }
+    if (s_invincible) mem_write16(0x080000u - 20536, mem_read16(0x080000u - 20534));
+#endif
+
     SDL_Event e;
     while (SDL_PollEvent(&e)) {
         switch (e.type) {
@@ -1095,6 +1114,10 @@ extern "C" EMSCRIPTEN_KEEPALIVE void pop2_touch_key(int vk_, int down) {
         push_event(4, uint32_t(vk << 8) | uint32_t(ch));
     }
 }
+
+// Web "assist" toggles, applied each frame in video_pump (see above).
+extern "C" EMSCRIPTEN_KEEPALIVE void pop2_set_invincible(int on) { s_invincible = (on != 0); }
+extern "C" EMSCRIPTEN_KEEPALIVE void pop2_set_hp_boost(int n) { s_hp_boost = n; }
 #endif
 
 // ---- audio sink: SDL queued audio fed by the synth's double buffers ----
