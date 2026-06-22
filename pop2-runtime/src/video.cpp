@@ -1118,6 +1118,17 @@ extern "C" EMSCRIPTEN_KEEPALIVE void pop2_touch_key(int vk_, int down) {
 // Web "assist" toggles, applied each frame in video_pump (see above).
 extern "C" EMSCRIPTEN_KEEPALIVE void pop2_set_invincible(int on) { s_invincible = (on != 0); }
 extern "C" EMSCRIPTEN_KEEPALIVE void pop2_set_hp_boost(int n) { s_hp_boost = n; }
+
+// Inject a Cmd+<letter> menu command straight into the game's event queue,
+// bypassing the browser (which would eat real Cmd+S/O/N). The game's loop sees
+// a keyDown carrying cmdKey and routes it to MenuKey: 'N' New Game, 'S' Save
+// Game, 'O' Open Game (File menu key equivalents). Used by the save manager.
+extern "C" EMSCRIPTEN_KEEPALIVE void pop2_menu_cmd(int ch) {
+    s_fake_cmd = true;                       // mac_modifiers() then reports cmdKey
+    push_event(3, uint32_t(ch & 0xFF));      // keyDown → MenuKey(ch)
+    push_event(4, uint32_t(ch & 0xFF));      // keyUp
+    s_fake_cmd = false;
+}
 #endif
 
 // ---- audio sink: SDL queued audio fed by the synth's double buffers ----
