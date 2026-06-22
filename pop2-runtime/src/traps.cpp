@@ -1146,6 +1146,18 @@ static void tb_trap(Cpu& cpu, uint16_t op) {
             // first saved game (a plain file with the 'POP2' magic), or cancel.
             std::string name = fs_take_save_override();
             if (name.empty()) name = fs_first_pop2_save();
+            if (!name.empty()) {
+                // Clear the kid's HP-change machinery before the load so a level-14
+                // finale's HP-drain state can't leak into a non-finale level opened
+                // next in the same session. a5-20462 gates the per-tick HP-delta
+                // routine (f2_68c0); a5-20656 is the pending delta f2_54d6 applies.
+                // Both live outside the kid block the save restores, so they would
+                // otherwise persist across the load. A finale save re-arms them
+                // within a few ticks through its own env8582==6 path, so the actual
+                // level-14 finale still drains.
+                mem_write16(A5_BASE - 20462, 0);
+                mem_write16(A5_BASE - 20656, 0);
+            }
             mem_write8(replyp, name.empty() ? 0 : 1);
             mem_write8(replyp + 1, 0);
             mem_write32(replyp + 2, 0x50533247);   // fType 'PS2G' (unused)
