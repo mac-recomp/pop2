@@ -73,7 +73,13 @@ function step() {
             magic = b.length >= 4 && String.fromCharCode(b[0], b[1], b[2], b[3]) === 'POP2';
           }
           result.magicPOP2 = magic;                                    // real save file
-          result.listedBySlot = Module.ccall('pop2_list_saves', 'string', [], []).split('\n').indexOf(SLOT) >= 0;
+          // pop2_list_saves returns "level\tname" lines; find our slot, check level
+          var slot = Module.ccall('pop2_list_saves', 'string', [], [])
+            .split('\n').filter(function (l) { return l.length; })
+            .map(function (l) { var t = l.indexOf('\t'); return { level: parseInt(l.slice(0, t), 10), name: l.slice(t + 1) }; })
+            .filter(function (s) { return s.name === SLOT; })[0];
+          result.listedBySlot = !!slot;                                // enumerated
+          result.levelIsOne = !!slot && slot.level === 1;              // New Game = level 1
           Module.ccall('pop2_load_slot', 'void', ['string'], [SLOT]);  // drive Open of the slot
           result.loadCallReturned = true;                              // ccall did not throw
           mark = elapsed(); phase = 3;

@@ -234,6 +234,7 @@ kbd{font-family:var(--font-mono);font-size:.66rem;color:var(--parch-100);min-wid
 .save-empty{font-size:.78rem;color:var(--parch-400);font-style:italic;padding:3px 1px;}
 .save-item{display:flex;align-items:center;gap:8px;padding:4px 4px 4px 8px;border-radius:5px;background:rgba(0,0,0,.22);}
 .save-item-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.82rem;color:var(--parch-100);}
+.save-level{flex:none;font-family:var(--font-mono);font-size:.68rem;letter-spacing:.02em;color:var(--gold-300);opacity:.85;white-space:nowrap;}
 .save-load{flex:none;background:rgba(240,216,148,.1);border:1px solid var(--border-faint);color:var(--gold-300);font-family:var(--font-mono);font-size:.72rem;border-radius:4px;padding:3px 10px;cursor:pointer;}
 .save-load:hover{border-color:var(--gold-500);}
 .save-del{flex:none;background:none;border:0;color:var(--parch-400);font-size:.92rem;line-height:1;cursor:pointer;width:22px;height:22px;border-radius:4px;}
@@ -515,23 +516,36 @@ kbd{font-family:var(--font-mono);font-size:.66rem;color:var(--parch-100);min-wid
       if (!Module.ccall) return [];
       var s = '';
       try { s = Module.ccall('pop2_list_saves', 'string', [], []); } catch (e) { return []; }
-      return s.split('\n').filter(function (n) { return n.length; });
+      // each line is "level\tname" (level 0 = unknown); split on the first tab
+      // only, so a tab in the name can't break parsing.
+      return s.split('\n').filter(function (l) { return l.length; }).map(function (l) {
+        var t = l.indexOf('\t');
+        return t < 0 ? { level: 0, name: l }
+                     : { level: parseInt(l.slice(0, t), 10) || 0, name: l.slice(t + 1) };
+      });
     }
     function renderSaves() {
       if (!saveList) return;
-      var names = listSaves();
+      var slots = listSaves();
       saveList.innerHTML = '';
-      if (!names.length) {
+      if (!slots.length) {
         var empty = document.createElement('li');
         empty.className = 'save-empty';
         empty.textContent = 'No saved games yet.';
         saveList.appendChild(empty);
         return;
       }
-      names.forEach(function (n) {
+      slots.forEach(function (s) {
+        var n = s.name;
         var li = document.createElement('li'); li.className = 'save-item';
         var nm = document.createElement('span'); nm.className = 'save-item-name';
         nm.textContent = n; nm.title = n;
+        li.appendChild(nm);
+        if (s.level > 0) {
+          var lv = document.createElement('span'); lv.className = 'save-level';
+          lv.textContent = 'Level ' + s.level;
+          li.appendChild(lv);
+        }
         var load = document.createElement('button');
         load.type = 'button'; load.className = 'save-load'; load.textContent = 'Load';
         load.addEventListener('click', function () {
@@ -545,7 +559,7 @@ kbd{font-family:var(--font-mono);font-size:.66rem;color:var(--parch-100);min-wid
           try { Module.FS.syncfs(false, function () {}); } catch (e) {}
           renderSaves();
         });
-        li.appendChild(nm); li.appendChild(load); li.appendChild(del);
+        li.appendChild(load); li.appendChild(del);
         saveList.appendChild(li);
       });
     }

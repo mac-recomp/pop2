@@ -450,6 +450,18 @@ static bool is_pop2_save(const fs::path& p) {
     return bool(f) && std::memcmp(magic, "POP2", 4) == 0;
 }
 
+// The saved level is a big-endian uint16 at offset 0x42. Returns 1..14, or 0
+// when unreadable or out of range (e.g. the oversized special-scene saves).
+static int read_save_level(const fs::path& p) {
+    std::ifstream f(p, std::ios::binary);
+    f.seekg(0x42);
+    unsigned char b[2] = {};
+    f.read(reinterpret_cast<char*>(b), 2);
+    if (!f) return 0;
+    int lvl = (int(b[0]) << 8) | int(b[1]);
+    return (lvl >= 1 && lvl <= 14) ? lvl : 0;
+}
+
 // First saved-game file in the game root, or "". POP2_OPEN_SAVE=<leaf name>
 // picks that save when several exist.
 std::string fs_first_pop2_save() {
@@ -481,15 +493,17 @@ std::string fs_take_save_override() {
 }
 
 #ifdef __EMSCRIPTEN__
-// Newline-separated names of every saved game in the volume root, for the web
-// save-manager list (read from JS via ccall; the buffer is valid until the next
-// call). EMSCRIPTEN_KEEPALIVE keeps it exported.
+// Slot list for the web save-manager: one "level\tname" line per saved game in
+// the volume root (level 0 = unknown). Read from JS via ccall; the buffer is
+// valid until the next call. EMSCRIPTEN_KEEPALIVE keeps it exported.
 extern "C" EMSCRIPTEN_KEEPALIVE const char* pop2_list_saves() {
     static std::string buf;
     buf.clear();
     std::error_code ec;
     for (auto& e : fs::directory_iterator(s_root, ec)) {
         if (e.is_regular_file(ec) && is_pop2_save(e.path())) {
+            buf += std::to_string(read_save_level(e.path()));
+            buf += '\t';
             buf += e.path().filename().string();
             buf += '\n';
         }
