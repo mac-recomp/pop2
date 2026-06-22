@@ -222,6 +222,22 @@ kbd{font-family:var(--font-mono);font-size:.66rem;color:var(--parch-100);min-wid
 .legend-assists .legend-title{display:block;margin-bottom:6px;}
 .assist-row{display:flex;align-items:center;gap:9px;padding:6px 0;font-size:.8rem;color:var(--parch-200);cursor:pointer;}
 .assist-row input{accent-color:var(--gold-500);width:15px;height:15px;flex:none;}
+/* save manager — named slots via the game's real Save/Open path */
+.legend-saves{margin-top:10px;padding-top:10px;border-top:1px solid var(--border-faint);}
+.legend-saves .legend-title{display:block;margin-bottom:8px;}
+.save-new{display:flex;gap:6px;margin-bottom:8px;}
+.save-new input{flex:1;min-width:0;background:rgba(0,0,0,.32);border:1px solid var(--border-faint);border-radius:5px;color:var(--parch-100);font-family:var(--font-mono);font-size:.8rem;padding:5px 8px;}
+.save-new input:focus{outline:none;border-color:var(--gold-500);}
+.save-do{flex:none;background:rgba(240,216,148,.12);border:1px solid var(--gold-500);color:var(--gold-300);font-family:var(--font-display);font-weight:600;font-size:.68rem;letter-spacing:.14em;text-transform:uppercase;border-radius:5px;padding:5px 13px;cursor:pointer;}
+.save-do:hover{background:rgba(240,216,148,.22);}
+.save-list{list-style:none;margin:0;padding:0;max-height:168px;overflow-y:auto;display:flex;flex-direction:column;gap:4px;}
+.save-empty{font-size:.78rem;color:var(--parch-400);font-style:italic;padding:3px 1px;}
+.save-item{display:flex;align-items:center;gap:8px;padding:4px 4px 4px 8px;border-radius:5px;background:rgba(0,0,0,.22);}
+.save-item-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.82rem;color:var(--parch-100);}
+.save-load{flex:none;background:rgba(240,216,148,.1);border:1px solid var(--border-faint);color:var(--gold-300);font-family:var(--font-mono);font-size:.72rem;border-radius:4px;padding:3px 10px;cursor:pointer;}
+.save-load:hover{border-color:var(--gold-500);}
+.save-del{flex:none;background:none;border:0;color:var(--parch-400);font-size:.92rem;line-height:1;cursor:pointer;width:22px;height:22px;border-radius:4px;}
+.save-del:hover{color:#e9938f;background:rgba(220,90,80,.14);}
 </style>
 </head>
 <body>
@@ -316,6 +332,14 @@ kbd{font-family:var(--font-mono);font-size:.66rem;color:var(--parch-100);min-wid
       <span class="legend-title">Assists</span>
       <label class="assist-row"><input type="checkbox" id="assist-invincible" /><span>Invincibility — never lose health</span></label>
       <label class="assist-row"><input type="checkbox" id="assist-hp" /><span>Start each level with 6 health (instead of 3)</span></label>
+    </div>
+    <div class="legend-saves">
+      <span class="legend-title">Saved Games</span>
+      <div class="save-new">
+        <input id="save-name" type="text" placeholder="Slot name" maxlength="31" autocomplete="off" spellcheck="false" />
+        <button id="save-btn" type="button" class="save-do">Save</button>
+      </div>
+      <ul id="save-list" class="save-list"><li class="save-empty">No saved games yet.</li></ul>
     </div>
   </div>
 
@@ -480,6 +504,72 @@ kbd{font-family:var(--font-mono);font-size:.66rem;color:var(--parch-100);min-wid
     if (inv) inv.addEventListener('change', function () { if (Module._pop2_set_invincible) Module._pop2_set_invincible(inv.checked ? 1 : 0); });
     var hpb = document.getElementById('assist-hp');
     if (hpb) hpb.addEventListener('change', function () { if (Module._pop2_set_hp_boost) Module._pop2_set_hp_boost(hpb.checked ? 6 : 0); });
+
+    // ---- save manager: named slots through the game's real Save/Open path ----
+    // Save sets the slot name + injects Cmd+S; Load sets it + injects Cmd+O; the
+    // Standard File trap reads the name (pop2_save_slot / pop2_load_slot in C).
+    var saveName = document.getElementById('save-name');
+    var saveBtn  = document.getElementById('save-btn');
+    var saveList = document.getElementById('save-list');
+    function listSaves() {
+      if (!Module.ccall) return [];
+      var s = '';
+      try { s = Module.ccall('pop2_list_saves', 'string', [], []); } catch (e) { return []; }
+      return s.split('\n').filter(function (n) { return n.length; });
+    }
+    function renderSaves() {
+      if (!saveList) return;
+      var names = listSaves();
+      saveList.innerHTML = '';
+      if (!names.length) {
+        var empty = document.createElement('li');
+        empty.className = 'save-empty';
+        empty.textContent = 'No saved games yet.';
+        saveList.appendChild(empty);
+        return;
+      }
+      names.forEach(function (n) {
+        var li = document.createElement('li'); li.className = 'save-item';
+        var nm = document.createElement('span'); nm.className = 'save-item-name';
+        nm.textContent = n; nm.title = n;
+        var load = document.createElement('button');
+        load.type = 'button'; load.className = 'save-load'; load.textContent = 'Load';
+        load.addEventListener('click', function () {
+          try { Module.ccall('pop2_load_slot', 'void', ['string'], [n]); } catch (e) {}
+        });
+        var del = document.createElement('button');
+        del.type = 'button'; del.className = 'save-del'; del.textContent = '✕'; del.title = 'Delete';
+        del.addEventListener('click', function () {
+          try { Module.FS.unlink('/data/pop2/' + n); } catch (e) {}
+          try { Module.FS.unlink('/data/persist/' + n); } catch (e) {}
+          try { Module.FS.syncfs(false, function () {}); } catch (e) {}
+          renderSaves();
+        });
+        li.appendChild(nm); li.appendChild(load); li.appendChild(del);
+        saveList.appendChild(li);
+      });
+    }
+    function doSave() {
+      var n = ((saveName && saveName.value) || '').trim() || 'Saved Game';
+      try { Module.ccall('pop2_save_slot', 'void', ['string'], [n]); } catch (e) {}
+      // the guest writes the file a few frames later (it runs the injected Cmd+S
+      // on its next event-loop turns), so refresh the list once it has landed.
+      setTimeout(renderSaves, 700);
+    }
+    if (saveBtn) saveBtn.addEventListener('click', doSave);
+    if (saveName) {
+      // Keep typing in the slot field out of the game: SDL listens for keys on
+      // the document, so swallow key events at the input (Enter = save).
+      ['keydown', 'keyup', 'keypress'].forEach(function (ev) {
+        saveName.addEventListener(ev, function (e) {
+          e.stopPropagation();
+          if (ev === 'keydown' && e.key === 'Enter') { e.preventDefault(); doSave(); }
+        });
+      });
+    }
+    // Refresh the slot list whenever the controls popover is opened.
+    var ctlCb = document.getElementById('controls-toggle-cb');
+    if (ctlCb) ctlCb.addEventListener('change', function () { if (ctlCb.checked) renderSaves(); });
 
     // ---- on-screen touch controls → injected Mac key presses ----
     function touchKey(vk, down) { if (Module._pop2_touch_key) Module._pop2_touch_key(vk, down ? 1 : 0); }

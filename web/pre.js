@@ -21,7 +21,14 @@ Module['preRun'].push(function () {
 // after the start gesture / data load). Headless Node runs have no shell, so
 // start the guest directly there. In the browser `process` is undefined.
 if (typeof process !== 'undefined' && process.versions && process.versions.node) {
+  // Expose the module to the headless test harness (tools/wasm-save-test.cjs):
+  // pop2.js is an IIFE, so its Module is otherwise unreachable from the require()
+  // caller, and the exports must not be called until the runtime is initialized
+  // (calling earlier aborts and poisons the instance). Node-only — the browser
+  // never enters this branch.
+  globalThis.__POP2_MODULE = Module;
   Module['onRuntimeInitialized'] = function () {
+    globalThis.__POP2_READY = true;   // exports are safe to call from here on
     Module['callMain'](['/data/app/CODE', '/data/pop2']);
   };
 }

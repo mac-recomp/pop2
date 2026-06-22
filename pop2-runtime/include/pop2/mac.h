@@ -168,6 +168,11 @@ int32_t fs_write(int16_t refnum, uint32_t buf, uint32_t count,
                  uint16_t pos_mode, int32_t pos_offset, uint32_t* act);
 int32_t fs_get_eof(int16_t refnum);
 std::string fs_first_pop2_save();
+// Web save-manager: a one-shot filename the Standard File trap consumes
+// (SFPutFile = name to save under, SFGetFile = file to open), set just before
+// the Save / Open menu command is injected.
+void fs_set_save_override(const std::string& name);
+std::string fs_take_save_override();
 int32_t fs_set_fpos(int16_t refnum, uint16_t pos_mode, int32_t pos_offset);
 int32_t fs_get_fpos(int16_t refnum);
 bool fs_fcb_info(int16_t refnum, std::string* name, int32_t* parID,

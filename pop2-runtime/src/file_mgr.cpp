@@ -441,19 +441,23 @@ int32_t fs_get_eof(int16_t refnum) {
     return it == s_open.end() ? -1 : it->second.size;
 }
 
-// First saved-game file in the game root: a plain file starting with the
-// 'POP2' magic that "Save Game..." writes. Returns the leaf name, or "".
-// POP2_OPEN_SAVE=<leaf name> picks that save when several exist.
+// A saved game is a plain file in the game root starting with the 'POP2' magic
+// that "Save Game..." writes (Mac saves carry no extension).
+static bool is_pop2_save(const fs::path& p) {
+    std::ifstream f(p, std::ios::binary);
+    char magic[4] = {};
+    f.read(magic, 4);
+    return bool(f) && std::memcmp(magic, "POP2", 4) == 0;
+}
+
+// First saved-game file in the game root, or "". POP2_OPEN_SAVE=<leaf name>
+// picks that save when several exist.
 std::string fs_first_pop2_save() {
     const char* want = std::getenv("POP2_OPEN_SAVE");
     std::error_code ec;
     std::string first;
     for (auto& e : fs::directory_iterator(s_root, ec)) {
-        if (!e.is_regular_file(ec)) continue;
-        std::ifstream f(e.path(), std::ios::binary);
-        char magic[4] = {};
-        f.read(magic, 4);
-        if (!f || std::memcmp(magic, "POP2", 4) != 0) continue;
+        if (!e.is_regular_file(ec) || !is_pop2_save(e.path())) continue;
         std::string leaf = e.path().filename().string();
         if (want && leaf == want) return leaf;
         if (first.empty()) first = leaf;
@@ -463,6 +467,36 @@ std::string fs_first_pop2_save() {
                      want, first.c_str());
     return first;
 }
+
+// ---- web save-manager ----
+// A one-shot filename the Standard File trap consumes: SFPutFile saves under it,
+// SFGetFile opens it. Set by pop2_save_slot / pop2_load_slot just before they
+// inject the game's Save / Open menu command; cleared on the first SF call.
+static std::string s_save_override;
+void fs_set_save_override(const std::string& name) { s_save_override = name; }
+std::string fs_take_save_override() {
+    std::string n;
+    n.swap(s_save_override);
+    return n;
+}
+
+#ifdef __EMSCRIPTEN__
+// Newline-separated names of every saved game in the volume root, for the web
+// save-manager list (read from JS via ccall; the buffer is valid until the next
+// call). EMSCRIPTEN_KEEPALIVE keeps it exported.
+extern "C" EMSCRIPTEN_KEEPALIVE const char* pop2_list_saves() {
+    static std::string buf;
+    buf.clear();
+    std::error_code ec;
+    for (auto& e : fs::directory_iterator(s_root, ec)) {
+        if (e.is_regular_file(ec) && is_pop2_save(e.path())) {
+            buf += e.path().filename().string();
+            buf += '\n';
+        }
+    }
+    return buf.c_str();
+}
+#endif
 
 int32_t fs_set_fpos(int16_t refnum, uint16_t pos_mode, int32_t pos_offset) {
     auto it = s_open.find(refnum);

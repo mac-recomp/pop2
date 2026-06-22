@@ -1141,6 +1141,18 @@ extern "C" EMSCRIPTEN_KEEPALIVE void pop2_menu_cmd(int ch) {
     push_event(4, uint32_t(ch & 0xFF));      // keyUp
     s_fake_cmd = false;
 }
+
+// Web save-manager: select a named slot, then drive the game's real Save / Open
+// menu command — the Standard File trap reads the override as the filename, so
+// the save/load goes through the engine's own code (checksum, level state).
+extern "C" EMSCRIPTEN_KEEPALIVE void pop2_save_slot(const char* name) {
+    fs_set_save_override(name ? name : "");
+    pop2_menu_cmd('S');
+}
+extern "C" EMSCRIPTEN_KEEPALIVE void pop2_load_slot(const char* name) {
+    fs_set_save_override(name ? name : "");
+    pop2_menu_cmd('O');
+}
 #endif
 
 // ---- audio sink: SDL queued audio fed by the synth's double buffers ----

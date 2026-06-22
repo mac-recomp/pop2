@@ -1123,6 +1123,8 @@ static void tb_trap(Cpu& cpu, uint16_t op) {
             (void)arg_l(cpu);                      // where (Point by value)
             std::string name = origp ? read_pstr(origp) : "";
             if (name.empty()) name = "Saved Game";
+            std::string slot = fs_take_save_override();   // web save-manager:
+            if (!slot.empty()) name = slot;               // save to chosen slot
             mem_write8(replyp, 1);                 // good
             mem_write8(replyp + 1, 0);
             mem_write32(replyp + 2, 0);            // fType
@@ -1140,9 +1142,10 @@ static void tb_trap(Cpu& cpu, uint16_t op) {
             (void)arg_l(cpu);                      // fileFilter
             (void)arg_l(cpu);                      // prompt(2)/unused
             (void)arg_l(cpu);                      // where
-            // No picker UI: hand back the first saved game (a plain file
-            // with the 'POP2' magic in the game root), or cancel.
-            std::string name = fs_first_pop2_save();
+            // No picker UI: open the slot the web save-manager chose, else the
+            // first saved game (a plain file with the 'POP2' magic), or cancel.
+            std::string name = fs_take_save_override();
+            if (name.empty()) name = fs_first_pop2_save();
             mem_write8(replyp, name.empty() ? 0 : 1);
             mem_write8(replyp + 1, 0);
             mem_write32(replyp + 2, 0x50533247);   // fType 'PS2G' (unused)
