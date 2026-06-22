@@ -16,8 +16,15 @@
 // volume root (/data/pop2), where SFGetFile / fs_first_pop2_save look. Awaits
 // the async syncfs via Asyncify/JSPI. Paired with pop2_persist_root (file_mgr).
 EM_ASYNC_JS(void, pop2_persist_init, (), {
+  // Skip persistence where IndexedDB is unavailable (Node, and private-browsing
+  // modes that disable it): mounting IDBFS there asserts → abort() (not a
+  // catchable throw), which would make the game unbootable. Save/load still
+  // works in-session; it just isn't carried across reloads.
+  var haveIDB = false;
+  try { haveIDB = (typeof indexedDB !== 'undefined') && !!indexedDB; } catch (e) {}
+  if (!haveIDB) return;
   try { FS.mkdir('/data/persist'); } catch (e) {}
-  try { FS.mount(IDBFS, {}, '/data/persist'); } catch (e) {}
+  try { FS.mount(IDBFS, {}, '/data/persist'); } catch (e) { return; }
   await new Promise(function (resolve) { FS.syncfs(true, function () { resolve(); }); });
   try {
     var names = FS.readdir('/data/persist');

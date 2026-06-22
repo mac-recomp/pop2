@@ -23,6 +23,11 @@
 // page reload. Called after a writable file is closed (i.e. a save was just
 // written). pop2_persist_init() (main.cpp) restores them on the next boot.
 EM_JS(void, pop2_persist_root, (), {
+  // No-op where IndexedDB is unavailable (Node, private-browsing): /data/persist
+  // was never mounted, so there is nothing to mirror to (see pop2_persist_init).
+  var haveIDB = false;
+  try { haveIDB = (typeof indexedDB !== 'undefined') && !!indexedDB; } catch (e) {}
+  if (!haveIDB) return;
   // Debounced: a save burst (and the boot-time prefs writes) coalesce into one
   // mirror + syncfs ~0.8s after the last close, instead of one per close — that
   // repeated work (esp. copying the big read-only .rsrc fork) stalled startup.
