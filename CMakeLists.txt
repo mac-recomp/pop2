@@ -95,6 +95,10 @@ if(EMSCRIPTEN)
         ${POP2_DATA_OPTS}
     )
     set_target_properties(pop2 PROPERTIES SUFFIX ".html")
+    # Re-link when the shell/pre-js change (Ninja doesn't track --shell-file /
+    # --pre-js inputs on its own, so an HTML-only edit would otherwise no-op).
+    set_target_properties(pop2 PROPERTIES
+        LINK_DEPENDS "${CMAKE_SOURCE_DIR}/web/shell.html;${CMAKE_SOURCE_DIR}/web/pre.js")
 else()
     find_package(SDL2 REQUIRED)
     target_link_libraries(pop2 PRIVATE SDL2::SDL2)
