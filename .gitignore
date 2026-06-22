@@ -2,7 +2,7 @@
 # the user supplies their own legally obtained copy (Unleashed Recompiled model).
 extracted/
 build/
-build-wasm/
+build-wasm*/
 *.SIT
 *.sit
 __pycache__/
