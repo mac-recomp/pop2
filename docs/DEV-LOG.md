@@ -961,3 +961,19 @@ model to real connectivity rather than over-reaching. Effect: **L14 (the finale)
 end-to-end (added L14); only L2/L6/L11 remain on the geometry fallback (event-gated
 room clusters the link graph can't follow). Table is 678 cells (more surgical than
 the 716 blanket pass). Spot-checked the L14 finale start room renders intact.
+
+## 2026-06-23 — Platform assist: buttons (tile 5/6) are walkable -> fewer gaps missed
+
+The WALKABLE set was missing tile types 5/6 (classic PoP raise/drop buttons -- the
+prince stands on them). That made the analyzer treat a button as a wall, so a pit
+bounded by a button went undetected (an under-fill -- a real "had to jump" spot) and
+the solver could not walk over buttons. Validated the fix the same way as climb-grab:
+adding 5/6 strictly increased reachability with zero regression on verified levels.
+Effect: **L12 now fully no-jump traversable (256/256, 0 unreached, was 11); L13
+residual 23 -> 3; L10 19 -> 15; L8 +9 reachable with fewer fills.** Now 11 levels
+verify end-to-end with most at 0-4 residual; only L2/L6/L11 stay on the geometry
+fallback (event-gated room clusters -- L11's reachable cells rose 16 -> 38 but its
+far rooms are reached by triggers the link graph can't follow). 677 cells. Closed the
+loop in-engine: loading L12 with the assist makes all 45 of its table cells floor.
+(Tooling note: a stale tools/__pycache__ briefly masked the change for one level --
+clear it after editing decode_level.py.)

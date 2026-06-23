@@ -24,7 +24,9 @@ TILE = {
     20: 'WAL', 21: 'c21', 22: 'c22', 23: 'bc1', 24: 'bc2', 25: 'c25',
     30: 'c30', 33: 'p33', 34: 'PLT', 49: 'win',
 }
-WALKABLE = {1, 3, 4, 8, 9, 10, 11, 14, 16, 17, 19, 23, 24, 33, 34, 49}
+# 5/6 are buttons/pressure-plates (classic PoP "raise"/"drop" buttons) -- the
+# prince stands on them, so they are walkable surfaces for traversal/gap analysis.
+WALKABLE = {1, 3, 4, 5, 6, 8, 9, 10, 11, 14, 16, 17, 19, 23, 24, 33, 34, 49}
 
 
 def w16(buf, off, signed=False):
