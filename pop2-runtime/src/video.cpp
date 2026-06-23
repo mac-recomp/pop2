@@ -1220,6 +1220,16 @@ bool s_audio_dead = false;
 bool audio_queue(const uint8_t* data, uint32_t bytes, int rate, int bits,
                  int channels) {
     if (s_audio_dead || std::getenv("POP2_NO_AUDIO")) return false;
+#ifdef __EMSCRIPTEN__
+    // #noaudio in the page URL kills audio entirely (diagnostic / silent mode):
+    // the device never opens, so a load-time freeze tied to Web Audio vanishes
+    // and the game still runs. Checked lazily in-wasm to avoid an export call
+    // before runtime initialization (which aborts).
+    static const bool s_no_web_audio =
+        EM_ASM_INT({ return (typeof location !== 'undefined' &&
+                             location.hash.indexOf('noaudio') >= 0) ? 1 : 0; });
+    if (s_no_web_audio) return false;
+#endif
     if (s_adev && (rate != s_arate || bits != s_abits ||
                    channels != s_achans)) {
         SDL_CloseAudioDevice(s_adev);
