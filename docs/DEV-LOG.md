@@ -768,3 +768,31 @@ floor renders and is solid, and map-review confirms the analyzer picks genuine
 pits. Still TODO: cross-room edge gaps, cushions under fatal drops, levels 1-2,
 baking the tables into the runtime (level-keyed auto-apply) + web UI toggle, and an
 end-to-end playtest pass to confirm no fill blocks a required path.
+
+## 2026-06-23 — Platform assist: the start/load room now shows stamped platforms
+
+The one open TODO from the foundation harness — the room you load (or start) into
+showed stamped platforms as solid-but-invisible. A room's *drawn* form is compiled
+at level entry; the per-frame stamp only mutates the live tile array, so a room
+already compiled before the stamp existed never picked it up. (Confirmed the
+per-frame drawer `f3_1f4e` reads a compiled per-column cache off `a5-17380`, not the
+live tiles, so forcing a full redraw alone would not help — the cache itself must be
+rebuilt.)
+
+Found the engine's own lever: in the per-frame update `f2_674c`, when `a5-21064` is
+non-zero it clears the flag and calls `f3_1378(a5-20418)` — recompiling the current
+room (`a5-20418` = displayed room) from the live tile array. So the assist just
+raises that flag once after a load: the SFGetFile (Open) trap now also sets
+`g_post_load_recompile`, and `video_pump` — once the load has settled
+(`g_post_load_pump <= 120`, ~1 s in) and only when platforms are actually placed —
+stamps `a5-21064 = 1` once, so the loaded room is redrawn from the now-stamped tiles.
+One-shot per load; naturally-entered rooms already compile with the stamp present, so
+they need nothing.
+
+Verified headlessly (SDL dummy driver, Level 5 loaded via an autokey Cmd+O, a floor
+ledge stamped across the middle row of every room): before, the loaded start room is
+open cave (platform invisible); after, a solid ledge spans exactly the stamped
+columns. A load with no platforms is byte-for-byte the normal room, so ordinary play
+and loads are untouched. The render lever for diagnosis is `POP2_WATCH`-free — just
+`POP2_PLATFORMS` + a load. Next: bake the level-keyed tables into the runtime and add
+the web UI toggle, then the end-to-end playtest.

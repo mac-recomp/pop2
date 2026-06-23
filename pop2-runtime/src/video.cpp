@@ -585,6 +585,11 @@ void present() {
 // calls after a load, so the loaded scene draws instead of sitting frozen.
 int g_post_load_pump = 0;
 
+// Set by the SFGetFile (Open) trap: a load just happened, so the platform-assist
+// harness should force one room recompile after it settles (the loaded room was
+// drawn before the live-tile stamp existed). One-shot — cleared once fired.
+int g_post_load_recompile = 0;
+
 void video_set_color(int index, uint8_t r, uint8_t g, uint8_t b) {
     if (index < 0 || index > 255) return;
     s_pal[index] = 0xFF000000u | (uint32_t(r) << 16) | (uint32_t(g) << 8) | b;
@@ -684,6 +689,18 @@ void video_pump() {
                         mem_write16(st + 8422 + room * 192, 0);
                 for (const Plat& p : s_plat)
                     mem_write16(st + p.off, p.val);
+            }
+            // The start/load room's drawn form is compiled at level entry, before
+            // this per-frame stamp exists, so a freshly loaded room shows stamped
+            // platforms as solid-but-invisible. Once the load has settled, force
+            // one room recompile through the engine's own path: f2_674c consumes
+            // a5-21064 and calls f3_1378(a5-20418 = current room), rebuilding the
+            // drawn room from the live (now-stamped) tiles. One-shot per load and
+            // only when platforms are placed, so normal play is untouched.
+            if (st && !s_plat.empty() && g_post_load_recompile &&
+                g_post_load_pump > 0 && g_post_load_pump <= 120) {
+                mem_write16(0x080000u - 21064, 1);
+                g_post_load_recompile = 0;
             }
         }
     }
