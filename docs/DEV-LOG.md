@@ -751,3 +751,20 @@ banish, r23 switch, west door at 0x4f, Up, cutscene, save 'Level 9'.
 ### web: trim the page masthead ~15% shorter. The title block ("The Shadow & the Flame") took a bit much vertical space above the playfield. Scaled the heading font (clamp 1.4–2.5rem → 1.2–2.12rem) and the kicker font, plus the kicker/title-rule vertical margins, down ~15%, so the game well sits slightly higher. Cosmetic only.
 
 ### platform-assist foundation: runtime tile injection renders on room entry (debug harness). Groundwork for the planned assist — pre-baked platforms so a level can be cleared without horizontal jumps (the hazard is gravity: fill pits, and put a platform under a killing drop so the fall is short). The level geometry is the live tile array in the level-state blob: `state = mem_read32(a5-20500)`, tiles at `state+(room-1)*60`, 16-bit per tile, low byte = type, **floor = type 1** (see tools/decode_level.py). Stamping a floor there makes the cell solid at once (the physics reads the live array — that's how gates/loose-floors work), but the room *background* is drawn from a compiled form built when a room is entered, NOT from the live array each frame — so a stamped tile is invisible until that room is (re)compiled. Confirmed cleanly: stamping a full floor row into room 1 (Level 11's left neighbour) and walking the kid left into it shows a ledge across the middle; the control walk without the stamp shows the room open — so platforms render on room ENTRY. The load/start room is the exception (compiled at load before the player "enters"), so a platform there will need the stamp before the load-compile, or a forced re-entry — TODO. Added an env-driven debug harness in video_pump (native + web): `POP2_PLATFORMS=room:idx[,room:idx...]` (idx = row*10+col) stamps floor tiles, and `POP2_NO_ENEMIES` zeros every room's NPC-spawn count (`state+8422+room*192`) to suppress spawns. Both hammered each frame against room re-init — the iteration tool for placing platforms and the basis for the eventual player assists. Next: confirm landing collision behaviorally, handle the start-room case, then walk each of the 14 levels placing platforms by the no-horizontal-jump criterion.
+
+## 2026-06-23 — Platform assist: per-level pit tables (levels 3-14)
+
+Headless level dumps via `SDL_VIDEODRIVER=dummy` (no display, no Xvfb — Xvfb's GL
+init aborts pop2): each "Level N" save loads under the dummy driver and
+`POP2_DUMP_STATE` writes the level-state blob. Batch-dumped levels 3-14.
+
+New tool `tools/level_platforms.py` scans each dump's room grids for short runs of
+empty space bounded on both sides (same row) by a walkable tile — the pits you
+would otherwise jump — and emits floor fills (`room:idx`). First-pass tables for
+all twelve levels are in `tools/platform-tables.txt` (10-53 cells per level).
+
+Render-on-entry and collision (live tile array) are already proven, so a stamped
+floor renders and is solid, and map-review confirms the analyzer picks genuine
+pits. Still TODO: cross-room edge gaps, cushions under fatal drops, levels 1-2,
+baking the tables into the runtime (level-keyed auto-apply) + web UI toggle, and an
+end-to-end playtest pass to confirm no fill blocks a required path.
