@@ -890,3 +890,30 @@ remaining TODO; needs per-spot judgement). Spot-checked L5 and L8 (heaviest, 103
 cells) headless: start rooms render intact, no catastrophic over-fill. Levels 1-2
 stay sparse — even the edge pass finds nothing fillable in L2 (its gaps are all
 level changes), which is the guard working as intended.
+
+## 2026-06-23 — Platform assist: reachability solver, per-level verification
+
+Autonomous pass to actually *traverse* each level rather than just fill pits by
+geometry. New `tools/level_solve.py` lays a level's linked rooms into one global
+tile grid and simulates the prince: walk, climb up one, drop (<=3 free, deeper is
+a fall), and -- for the intended-path model only -- jump a few tiles. It computes
+reachability from the real start cell (collected via `POP2_DUMP_KID`) two ways:
+`R_full` (jumps + survivable falls = where the designer lets you go) and `R_safe`
+(no jumps, only safe drops, with platforms). It seeds the geometry heuristic's
+blanket pit-fills, **vets each one** (a fill is dropped if it shrinks `R_full` --
+i.e. it would seal an intended drop, a softlock), then adds bridges/cushions until
+`R_safe` covers `R_full`. So it can't create a softlock by construction.
+
+`tools/rebuild_tables.py` runs this for all 14 levels and picks the source per
+level: the solver's vetted+completed set where the movement model actually
+traverses the level (its `R_full` is a big fraction of the walkable tiles), else
+the geometry heuristic where the model gets stuck. Honest limitation: the model's
+**vertical** reach (climbing/falling across the 3-row room seams) does not yet
+match PoP2's real physics, so levels whose start chamber only exits up/down --
+**L2, L6, L11, L14** -- the model can't leave (reachable 5-45 of ~150-190 cells),
+and they fall back to geometry (not movement-verified). The other ten traverse
+well (e.g. L8 237/237 reachable no-jump, L1 85/85). Per-level `# L N:` comments
+record provenance, the fills the solver *removed* as drop-blockers, and the spots
+that still need a jump (e.g. L10 19, L13 36). Table is now 716 cells. Spot-checked
+L7/L8 render intact. Next: improve the vertical model to verify L2/6/11/14 and
+close the residual unreached spots on L10/12/13.
