@@ -659,17 +659,20 @@ void video_pump() {
     // drawn from a compiled form at room entry, so a stamped tile becomes visible
     // once that room is (re)compiled.
     {
+        struct Plat { uint32_t off; uint16_t val; };
         static const bool s_no_enemies = std::getenv("POP2_NO_ENEMIES") != nullptr;
-        static const std::vector<uint32_t> s_plat = [] {
-            std::vector<uint32_t> v;
+        static const std::vector<Plat> s_plat = [] {
+            std::vector<Plat> v;
             for (const char* e = std::getenv("POP2_PLATFORMS"); e && *e;) {
                 int room = std::atoi(e);
-                const char* c = std::strchr(e, ':');
-                int idx = c ? std::atoi(c + 1) : -1;
+                const char* c1 = std::strchr(e, ':');
+                int idx = c1 ? std::atoi(c1 + 1) : -1;
+                const char* comma = std::strchr(e, ',');
+                const char* c2 = c1 ? std::strchr(c1 + 1, ':') : nullptr;
+                int val = (c2 && (!comma || c2 < comma)) ? std::atoi(c2 + 1) : 1;  // default floor
                 if (room >= 1 && idx >= 0 && idx < 30)
-                    v.push_back(uint32_t((room - 1) * 60 + idx * 2));
-                e = std::strchr(e, ',');
-                if (e) ++e;
+                    v.push_back({uint32_t((room - 1) * 60 + idx * 2), uint16_t(val)});
+                e = comma ? comma + 1 : nullptr;
             }
             return v;
         }();
@@ -679,8 +682,8 @@ void video_pump() {
                 if (s_no_enemies)
                     for (uint32_t room = 0; room <= 30; ++room)
                         mem_write16(st + 8422 + room * 192, 0);
-                for (uint32_t off : s_plat)
-                    mem_write16(st + off, 1);
+                for (const Plat& p : s_plat)
+                    mem_write16(st + p.off, p.val);
             }
         }
     }
