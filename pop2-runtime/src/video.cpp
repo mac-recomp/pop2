@@ -58,6 +58,12 @@ uint8_t s_keymap[16];           // Mac KeyMap bits
 int s_hp_boost = 0;             // web assist: minimum starting HP (0 = off)
 bool s_invincible = false;      // web assist: pin current HP = max
 #endif
+// Platform assist (native + web). Settable from the web menu (pop2_set_platforms
+// / pop2_set_remove_enemies) or, for iteration, from env (see video_pump).
+bool s_platform_assist = false;   // build the pre-baked per-level platforms
+bool s_remove_enemies = false;    // suppress enemy spawns
+// Baked per-level platform tables (kPlatTables[level]); idx = row*10 + col.
+#include "platform_tables.inc"
 bool s_button = false;
 int16_t s_mouse_h = SCREEN_W / 2, s_mouse_v = SCREEN_H / 2;
 uint32_t s_last_present = 0;    // SDL_GetTicks of last frame
@@ -585,10 +591,11 @@ void present() {
 // calls after a load, so the loaded scene draws instead of sitting frozen.
 int g_post_load_pump = 0;
 
-// Set by the SFGetFile (Open) trap: a load just happened, so the platform-assist
-// harness should force one room recompile after it settles (the loaded room was
-// drawn before the live-tile stamp existed). One-shot — cleared once fired.
-int g_post_load_recompile = 0;
+// Frames until the platform assist forces one room recompile (a5-21064), so the
+// current room's drawn form is rebuilt from the live tiles and the stamped
+// platforms appear. Counted down per pump; armed after a load (settle delay, set
+// by the SFGetFile trap) or a mid-level platforms toggle (next frame).
+int g_recompile_in = 0;
 
 void video_set_color(int index, uint8_t r, uint8_t g, uint8_t b) {
     if (index < 0 || index > 255) return;
@@ -654,18 +661,21 @@ void video_pump() {
         }
     }
 
-    // --- Platform-assist foundation harness (debug, native + web) --------
-    // POP2_NO_ENEMIES        zero every room's NPC-spawn count -> nothing spawns
-    //                        on entry (iteration aid + the "remove enemies" assist).
-    // POP2_PLATFORMS=room:idx[,room:idx...]  (idx = row*10 + col) stamp a floor
-    //                        tile (type 1) into those cells of the live tile array.
-    // Both hammered each frame (a room (re)load re-inits the tables). Collision
-    // reads the live array so stamped cells are solid; the room background is
-    // drawn from a compiled form at room entry, so a stamped tile becomes visible
-    // once that room is (re)compiled.
+    // --- Platform assist (native env harness + web menu toggle) ----------
+    // Two opt-in assists, hammered each frame against room re-init:
+    //  * platforms — fill pits so a level needs no horizontal jumps. Source is
+    //    the baked per-level table kPlatTables[state+8586] (the live level), or
+    //    explicit cells via POP2_PLATFORMS=room:idx[:val] for placement work.
+    //  * remove enemies — zero every room's NPC-spawn count so nothing spawns.
+    // Enabled by the web exports (s_platform_assist / s_remove_enemies) or, for
+    // iteration, by env (POP2_PLATFORM_ASSIST / POP2_PLATFORMS / POP2_NO_ENEMIES).
+    // A stamped floor (type 1) is solid at once — physics reads the live tile
+    // array — but the room's drawn form is compiled at entry, so it shows in the
+    // loaded room only after the post-load recompile below.
     {
         struct Plat { uint32_t off; uint16_t val; };
-        static const bool s_no_enemies = std::getenv("POP2_NO_ENEMIES") != nullptr;
+        static const bool s_env_no_enemies = std::getenv("POP2_NO_ENEMIES") != nullptr;
+        static const bool s_env_assist = std::getenv("POP2_PLATFORM_ASSIST") != nullptr;
         static const std::vector<Plat> s_plat = [] {
             std::vector<Plat> v;
             for (const char* e = std::getenv("POP2_PLATFORMS"); e && *e;) {
@@ -681,26 +691,37 @@ void video_pump() {
             }
             return v;
         }();
-        if (s_no_enemies || !s_plat.empty()) {
+        const bool want_plat = s_platform_assist || s_env_assist || !s_plat.empty();
+        const bool want_no_enemies = s_remove_enemies || s_env_no_enemies;
+        if (want_plat || want_no_enemies) {
             uint32_t st = mem_read32(0x080000u - 20500);
             if (st) {
-                if (s_no_enemies)
+                if (want_no_enemies)
                     for (uint32_t room = 0; room <= 30; ++room)
                         mem_write16(st + 8422 + room * 192, 0);
                 for (const Plat& p : s_plat)
                     mem_write16(st + p.off, p.val);
-            }
-            // The start/load room's drawn form is compiled at level entry, before
-            // this per-frame stamp exists, so a freshly loaded room shows stamped
-            // platforms as solid-but-invisible. Once the load has settled, force
-            // one room recompile through the engine's own path: f2_674c consumes
-            // a5-21064 and calls f3_1378(a5-20418 = current room), rebuilding the
-            // drawn room from the live (now-stamped) tiles. One-shot per load and
-            // only when platforms are placed, so normal play is untouched.
-            if (st && !s_plat.empty() && g_post_load_recompile &&
-                g_post_load_pump > 0 && g_post_load_pump <= 120) {
-                mem_write16(0x080000u - 21064, 1);
-                g_post_load_recompile = 0;
+                // baked per-level table, keyed on the live level (state+8586)
+                if (s_platform_assist || s_env_assist) {
+                    int lvl = int(mem_read16(st + 8586));
+                    if (lvl >= 1 && lvl <= 14)
+                        for (int i = 0; i < kPlatTables[lvl].n; ++i) {
+                            const PlatCell& c = kPlatTables[lvl].cells[i];
+                            if (c.room >= 1 && c.idx < 30)
+                                mem_write16(st + uint32_t((c.room - 1) * 60 + c.idx * 2),
+                                            c.val);
+                        }
+                }
+                // The room's drawn form is compiled at entry, before this stamp
+                // exists, so a freshly loaded room (or one shown when the assist is
+                // toggled on mid-level) renders the platforms solid-but-invisible.
+                // When the armed countdown elapses, force one recompile via the
+                // engine's own path: f2_674c consumes a5-21064 and calls
+                // f3_1378(a5-20418 = current room), rebuilding it from the live
+                // (now-stamped) tiles. Only when platforms are wanted, so normal
+                // play is untouched; naturally-entered rooms already compile stamped.
+                if (want_plat && g_recompile_in > 0 && --g_recompile_in == 0)
+                    mem_write16(0x080000u - 21064, 1);
             }
         }
     }
@@ -1224,6 +1245,15 @@ extern "C" EMSCRIPTEN_KEEPALIVE void pop2_touch_key(int vk_, int down) {
 // Web "assist" toggles, applied each frame in video_pump (see above).
 extern "C" EMSCRIPTEN_KEEPALIVE void pop2_set_invincible(int on) { s_invincible = (on != 0); }
 extern "C" EMSCRIPTEN_KEEPALIVE void pop2_set_hp_boost(int n) { s_hp_boost = n; }
+// Platform assist toggles. Turning platforms on mid-level also forces a recompile
+// of the current room (g_post_load_recompile path) so the build shows at once.
+extern "C" EMSCRIPTEN_KEEPALIVE void pop2_set_platforms(int on) {
+    s_platform_assist = (on != 0);
+    if (s_platform_assist) g_recompile_in = 2;   // rebuild the current room next frame
+}
+extern "C" EMSCRIPTEN_KEEPALIVE void pop2_set_remove_enemies(int on) {
+    s_remove_enemies = (on != 0);
+}
 extern "C" EMSCRIPTEN_KEEPALIVE int pop2_dbg_hp() { return int16_t(mem_read16(0x080000u - 20536)); }
 extern "C" EMSCRIPTEN_KEEPALIVE int pop2_dbg_fb(int x, int y) {
     if (x < 0 || y < 0 || x >= kWidth || y >= kHeight) return -1;

@@ -23,7 +23,7 @@ namespace pop2 {
 const char* trap_display_name(uint16_t op);
 
 extern int g_post_load_pump;   // video.cpp: post-load sim/render-gate window
-extern int g_post_load_recompile;  // video.cpp: force one room recompile post-load
+extern int g_recompile_in;     // video.cpp: countdown to a forced room recompile
 
 static const bool s_trace = std::getenv("POP2_TRACE_TRAPS") != nullptr;
 
@@ -1205,7 +1205,7 @@ static void tb_trap(Cpu& cpu, uint16_t op) {
                 // video_pump re-assert it for a window of frames so the camera
                 // settles and the scene draws (a5-20656 stays 0 -> no drain leak).
                 g_post_load_pump = 180;
-                g_post_load_recompile = 1;   // platform assist: redraw the loaded room
+                g_recompile_in = 60;   // platform assist: redraw the loaded room once settled
             }
             mem_write8(replyp, name.empty() ? 0 : 1);
             mem_write8(replyp + 1, 0);

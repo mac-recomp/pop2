@@ -4,6 +4,8 @@
 # cells to stamp so a level needs no horizontal jumps: "room:idx", idx=row*10+col.
 # Apply a line to the runtime via POP2_PLATFORMS, e.g.
 #   POP2_PLATFORMS="$(sed -n 's/^LEVEL 3: //p' tools/platform-tables.txt)" ./pop2 ...
+# These are also baked into the engine (the platform assist auto-applies the table
+# for the live level): after editing here, run tools/gen_platform_tables.py.
 #
 # Status: interior horizontal pits (<=4 wide) only. TODO: cross-room edge gaps,
 # cushions under fatal drops, levels 1-2, end-to-end playtest. (Render + collision

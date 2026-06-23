@@ -796,3 +796,29 @@ columns. A load with no platforms is byte-for-byte the normal room, so ordinary 
 and loads are untouched. The render lever for diagnosis is `POP2_WATCH`-free — just
 `POP2_PLATFORMS` + a load. Next: bake the level-keyed tables into the runtime and add
 the web UI toggle, then the end-to-end playtest.
+
+## 2026-06-23 — Platform assist: bake the level tables, auto-apply by level
+
+The assist no longer needs the env table hand-fed: `tools/gen_platform_tables.py`
+turns `tools/platform-tables.txt` into `pop2-runtime/src/platform_tables.inc`
+(`kPlatTables[level]`, 1..14; 348 cells across L3-14, L1-2 still empty), and
+`video_pump` applies the table for the *live* level each frame. The live level is
+`state+8586` — found it as the value `f2_674c` compares against 13 for a level-13
+room-4 special case, and confirmed it reads 5 / 14 after loading those saves.
+
+The assist is now a toggle, not just an env var: `s_platform_assist` /
+`s_remove_enemies` (file-scope, native+web) drive it, set by env
+(`POP2_PLATFORM_ASSIST` / `POP2_PLATFORMS` explicit cells / `POP2_NO_ENEMIES`) for
+placement work or by the new web exports `pop2_set_platforms` /
+`pop2_set_remove_enemies` for the menu. Turning platforms on mid-level arms the same
+recompile lever (now a frame countdown `g_recompile_in`: 60 after a load to let it
+settle, 2 after a toggle) so the current room rebuilds with the platforms at once.
+
+Verified headlessly: loading Level 3 with `POP2_PLATFORM_ASSIST=1` fills all 35 of
+L3's table cells with floor (type 1) in the live tile array, while the same load
+without the assist leaves all 35 as empty pits (type 0) — so the analyzer's cells
+are real gaps and the engine fills exactly them. The loaded start room renders the
+new platform (the upper ledge by the door, a pit when off, a bridge when on). Still
+to do for player-facing: the shell UI toggles (wire to the two exports, add to the
+wasm `EXPORTED_FUNCTIONS`) + an in-browser check, then the end-to-end playtest and
+the table refinements (cross-room gaps, fatal-drop cushions, levels 1-2).
