@@ -400,6 +400,8 @@ body.has-saved-data .forget-data{display:block;}
           <span class="legend-title">Assists</span>
           <label class="assist-row"><input type="checkbox" id="assist-invincible" /><span>Invincibility — never lose health</span></label>
           <label class="assist-row"><input type="checkbox" id="assist-hp" /><span>Start each level with 6 health (instead of 3)</span></label>
+          <label class="assist-row"><input type="checkbox" id="assist-platforms" /><span>Build platforms — fill the pits so no leaps are needed</span></label>
+          <label class="assist-row"><input type="checkbox" id="assist-no-enemies" /><span>Clear the way — no enemies spawn</span></label>
           <button id="add-time" class="assist-action" type="button" title="Rewinds the game clock, giving you more time before the game's time limit">＋&nbsp; Add 10 minutes of game time</button>
           <div class="assist-speed">
             <label for="speed-slider"><span>Game speed</span><b id="speed-val">1×</b></label>
@@ -613,11 +615,15 @@ body.has-saved-data .forget-data{display:block;}
       tt.classList.toggle('active', document.body.classList.toggle('force-touch'));
     });
 
-    // ---- assists (invincibility / extra health) ----
+    // ---- assists (invincibility / extra health / platforms / no enemies) ----
     var inv = document.getElementById('assist-invincible');
     if (inv) inv.addEventListener('change', function () { if (Module._pop2_set_invincible) Module._pop2_set_invincible(inv.checked ? 1 : 0); });
     var hpb = document.getElementById('assist-hp');
     if (hpb) hpb.addEventListener('change', function () { if (Module._pop2_set_hp_boost) Module._pop2_set_hp_boost(hpb.checked ? 6 : 0); });
+    var plat = document.getElementById('assist-platforms');
+    if (plat) plat.addEventListener('change', function () { if (Module._pop2_set_platforms) Module._pop2_set_platforms(plat.checked ? 1 : 0); });
+    var noen = document.getElementById('assist-no-enemies');
+    if (noen) noen.addEventListener('change', function () { if (Module._pop2_set_remove_enemies) Module._pop2_set_remove_enemies(noen.checked ? 1 : 0); });
 
     // ---- save manager: named slots through the game's real Save/Open path ----
     // Save sets the slot name + injects Cmd+S; Load sets it + injects Cmd+O; the

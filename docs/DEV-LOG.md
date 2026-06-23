@@ -822,3 +822,23 @@ new platform (the upper ledge by the door, a pit when off, a bridge when on). St
 to do for player-facing: the shell UI toggles (wire to the two exports, add to the
 wasm `EXPORTED_FUNCTIONS`) + an in-browser check, then the end-to-end playtest and
 the table refinements (cross-room gaps, fatal-drop cushions, levels 1-2).
+
+## 2026-06-23 — Platform assist: the web menu toggles (player-facing, verified)
+
+Wired the two exports into the Assists panel of `web/shell.html`: "Build platforms —
+fill the pits so no leaps are needed" → `pop2_set_platforms`, and "Clear the way — no
+enemies spawn" → `pop2_set_remove_enemies`, each a checkbox following the existing
+invincibility/HP rows. No build-config change was needed — `EMSCRIPTEN_KEEPALIVE`
+auto-exports the setters (there is no explicit `EXPORTED_FUNCTIONS` list; the runtime
+methods are `callMain,FS,ccall,HEAPU8`), so `Module._pop2_set_platforms` is callable
+once the wasm is rebuilt.
+
+Verified end-to-end in headless Chromium (a new `~/pop2-webtest/platform_verify.mjs`,
+run with bun): the exports resolve to functions and both checkboxes exist; loading
+Level 3 via `pop2_load_slot`, then checking "Build platforms" (dispatching the real
+change handler), fills the loaded room's pit with a floor platform — a clean
+same-room before/after shows the open gap above the door becoming a solid bridge, the
+browser match of the native dump. So the toggle's mid-level recompile path
+(`g_recompile_in = 2`) works in the slow wasm build too. The platform assist is now
+usable from the menu. Remaining: end-to-end playtest of each level's table and the
+table refinements (cross-room edge gaps, fatal-drop cushions, levels 1-2).
