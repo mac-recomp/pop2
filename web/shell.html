@@ -171,6 +171,10 @@ body::before{
 .assist-action{margin-top:10px;width:100%;background:rgba(240,216,148,.08);border:1px solid var(--border-faint);color:var(--gold-300);font-family:var(--font-display);font-size:.74rem;letter-spacing:.05em;border-radius:6px;padding:9px;cursor:pointer;transition:background .15s;}
 .assist-action:hover{background:rgba(240,216,148,.16);}
 .assist-action:disabled{opacity:.65;cursor:default;}
+.assist-speed{margin-top:13px;font-size:.74rem;color:var(--gold-300);letter-spacing:.04em;}
+.assist-speed label{display:flex;justify-content:space-between;margin-bottom:6px;}
+.assist-speed b{font-weight:600;}
+.assist-speed input[type=range]{width:100%;accent-color:var(--gold-500);cursor:pointer;}
 @media (max-width:600px){.legend-grid{grid-template-columns:1fr;gap:16px;}}
 
 /* adaptive layout: game + a controls rail — rail below on narrow, beside on wide */
@@ -385,6 +389,10 @@ body.has-saved-data .forget-data{display:block;}
           <label class="assist-row"><input type="checkbox" id="assist-invincible" /><span>Invincibility — never lose health</span></label>
           <label class="assist-row"><input type="checkbox" id="assist-hp" /><span>Start each level with 6 health (instead of 3)</span></label>
           <button id="add-time" class="assist-action" type="button" title="Rewinds the game clock, giving you more time before the game's time limit">＋&nbsp; Add 10 minutes of game time</button>
+          <div class="assist-speed">
+            <label for="speed-slider"><span>Game speed</span><b id="speed-val">1×</b></label>
+            <input type="range" id="speed-slider" min="0.25" max="3" step="0.25" value="1" />
+          </div>
         </div>
       </div>
       <div class="legend-col">
@@ -731,6 +739,15 @@ body.has-saved-data .forget-data{display:block;}
       addTimeBtn.textContent = '✓  Added 10 minutes';
       addTimeBtn.disabled = true;
       setTimeout(function () { addTimeBtn.textContent = label; addTimeBtn.disabled = false; }, 1400);
+    });
+
+    // ---- Game speed slider: scales the game clock (logic runs faster/slower) ----
+    var speedSlider = document.getElementById('speed-slider');
+    var speedVal = document.getElementById('speed-val');
+    if (speedSlider) speedSlider.addEventListener('input', function () {
+      var v = parseFloat(speedSlider.value);
+      if (speedVal) speedVal.textContent = v + '×';
+      if (Module.ccall) Module.ccall('pop2_set_speed', null, ['number'], [v]);
     });
 
     // ---- picker build: forget the remembered data archive ----

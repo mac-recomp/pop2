@@ -29,6 +29,7 @@ struct Cpu {
 [[noreturn]] void fatal(const char* fmt, ...);
 uint32_t ticks_live();   // live TickCount for raw low-mem Ticks reads
 void time_add_minutes(int minutes);   // assist: rewind the game clock to add time
+void time_set_speed(double mult);     // assist: game-speed multiplier (1.0 = normal)
 
 // ---------- memory ----------
 inline uint8_t mem_read8(uint32_t addr) { return g_mem[addr & ADDR_MASK]; }

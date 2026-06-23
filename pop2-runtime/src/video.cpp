@@ -1158,6 +1158,10 @@ extern "C" EMSCRIPTEN_KEEPALIVE unsigned pop2_dbg_peek32(unsigned addr) {
 extern "C" EMSCRIPTEN_KEEPALIVE void pop2_add_time(int minutes) {
     time_add_minutes(minutes);
 }
+// Assist: set the game-speed multiplier (1.0 = normal). Wired to the speed slider.
+extern "C" EMSCRIPTEN_KEEPALIVE void pop2_set_speed(double mult) {
+    time_set_speed(mult);
+}
 
 // Inject a Cmd+<letter> menu command straight into the game's event queue,
 // bypassing the browser (which would eat real Cmd+S/O/N). The game's loop sees

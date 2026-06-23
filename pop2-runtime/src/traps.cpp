@@ -145,14 +145,27 @@ static uint32_t make_window(int16_t wind_id, uint32_t storage,
 }
 
 static uint32_t s_tick_offset = 0;   // assist: rewind the game clock to add time
+static double   s_speed     = 1.0;   // assist: game-speed multiplier
+static double   s_scaled    = 0.0;   // accumulated speed-adjusted ticks
+static uint32_t s_last_raw  = 0;
 static uint32_t raw_ticks() {
     using namespace std::chrono;
     static const steady_clock::time_point start = steady_clock::now();
     return uint32_t(duration_cast<milliseconds>(steady_clock::now() -
                                                 start).count() * 60 / 1000);
 }
+// Speed-adjusted, monotonic game clock (before the +time offset): every real
+// tick advances it by s_speed ticks, so the game's TickCount-paced logic runs
+// faster/slower while the real-time present throttle keeps the display at 60fps.
+static uint32_t scaled_ticks() {
+    uint32_t raw = raw_ticks();
+    s_scaled += double(raw - s_last_raw) * s_speed;
+    s_last_raw = raw;
+    return uint32_t(s_scaled);
+}
 static uint32_t ticks_now() {
-    uint32_t t = raw_ticks() - s_tick_offset;   // s_tick_offset <= raw (capped on set)
+    uint32_t s = scaled_ticks();
+    uint32_t t = s > s_tick_offset ? s - s_tick_offset : 0;   // offset capped on set
     mem_write32(0x16A, t);   // low-mem Ticks: the MDRV synth polls it raw
     return t;
 }
@@ -166,10 +179,20 @@ uint32_t ticks_live() { return ticks_now(); }
 // (and the early game, where it would, has ample time anyway).
 void time_add_minutes(int minutes) {
     if (minutes <= 0) return;
-    uint32_t raw = raw_ticks();
-    uint32_t cap = raw > 60 ? raw - 60 : 0;
+    uint32_t s = scaled_ticks();
+    uint32_t cap = s > 60 ? s - 60 : 0;
     uint32_t want = s_tick_offset + uint32_t(minutes) * 3600u;
     s_tick_offset = want < cap ? want : cap;
+}
+
+// Assist: set the game-speed multiplier (1.0 = normal). The accumulator banks
+// the time elapsed at the old speed before switching, so the clock stays
+// monotonic across changes (no jump). Clamped to a sane, playable range.
+void time_set_speed(double mult) {
+    if (mult < 0.25) mult = 0.25;
+    if (mult > 3.0) mult = 3.0;
+    scaled_ticks();
+    s_speed = mult;
 }
 
 static int64_t now_us() {
