@@ -649,6 +649,42 @@ void video_pump() {
         }
     }
 
+    // --- Platform-assist foundation harness (debug, native + web) --------
+    // POP2_NO_ENEMIES        zero every room's NPC-spawn count -> nothing spawns
+    //                        on entry (iteration aid + the "remove enemies" assist).
+    // POP2_PLATFORMS=room:idx[,room:idx...]  (idx = row*10 + col) stamp a floor
+    //                        tile (type 1) into those cells of the live tile array.
+    // Both hammered each frame (a room (re)load re-inits the tables). Collision
+    // reads the live array so stamped cells are solid; the room background is
+    // drawn from a compiled form at room entry, so a stamped tile becomes visible
+    // once that room is (re)compiled.
+    {
+        static const bool s_no_enemies = std::getenv("POP2_NO_ENEMIES") != nullptr;
+        static const std::vector<uint32_t> s_plat = [] {
+            std::vector<uint32_t> v;
+            for (const char* e = std::getenv("POP2_PLATFORMS"); e && *e;) {
+                int room = std::atoi(e);
+                const char* c = std::strchr(e, ':');
+                int idx = c ? std::atoi(c + 1) : -1;
+                if (room >= 1 && idx >= 0 && idx < 30)
+                    v.push_back(uint32_t((room - 1) * 60 + idx * 2));
+                e = std::strchr(e, ',');
+                if (e) ++e;
+            }
+            return v;
+        }();
+        if (s_no_enemies || !s_plat.empty()) {
+            uint32_t st = mem_read32(0x080000u - 20500);
+            if (st) {
+                if (s_no_enemies)
+                    for (uint32_t room = 0; room <= 30; ++room)
+                        mem_write16(st + 8422 + room * 192, 0);
+                for (uint32_t off : s_plat)
+                    mem_write16(st + off, 1);
+            }
+        }
+    }
+
 #ifdef __EMSCRIPTEN__
     // Web assists (toggled from the shell). Boost: when a level resets capacity
     // to the default (max < N), raise max to N and top current HP up to N — so
