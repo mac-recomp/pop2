@@ -162,7 +162,7 @@ body::before{
 }
 .controls-toggle-cb:checked ~ #controls-legend{opacity:1;visibility:visible;transform:translate(-50%,-50%) scale(1);}
 /* two columns: controls + assists | saved games (stacks on narrow screens) */
-.legend-grid{display:grid;grid-template-columns:1.05fr 1fr;gap:22px;align-items:start;}
+.legend-grid{display:grid;grid-template-columns:1.05fr 1fr;gap:22px;align-items:stretch;}
 .legend-col{display:flex;flex-direction:column;gap:14px;min-width:0;}
 .legend-col > .legend-section + .legend-section, .legend-col > .menu-action + .legend-section{border-top:1px solid var(--border-faint);padding-top:12px;}
 .legend-section .legend-title{display:block;margin-bottom:8px;}
@@ -235,7 +235,7 @@ kbd{font-family:var(--font-mono);font-size:.66rem;color:var(--parch-100);min-wid
   width:clamp(158px,40vw,200px);height:clamp(128px,32vw,162px);}
 .tc-actions .tc-act{position:absolute;}
 .tc-attack{right:0;bottom:0;}                                   /* primary: under the thumb */
-.tc-step{right:clamp(72px,18.5vw,92px);bottom:clamp(46px,11.5vw,58px);}  /* secondary: up-left */
+.tc-step{right:clamp(96px,24vw,124px);bottom:clamp(62px,15.5vw,80px);}  /* secondary: further up-left, well clear of Attack */
 /* Menu kept small and up top, far from the action thumbs (no accidental pause) */
 .tc-menu-btn{position:absolute;top:clamp(8px,2.4vw,15px);left:50%;transform:translateX(-50%);
   width:clamp(48px,12vw,58px);height:clamp(30px,7vw,36px);border-radius:8px;font-size:1rem;}
@@ -269,7 +269,8 @@ kbd{font-family:var(--font-mono);font-size:.66rem;color:var(--parch-100);min-wid
 .save-new input:focus{outline:none;border-color:var(--gold-500);}
 .save-do{flex:none;background:rgba(240,216,148,.12);border:1px solid var(--gold-500);color:var(--gold-300);font-family:var(--font-display);font-weight:600;font-size:.68rem;letter-spacing:.14em;text-transform:uppercase;border-radius:5px;padding:5px 13px;cursor:pointer;}
 .save-do:hover{background:rgba(240,216,148,.22);}
-.save-list{list-style:none;margin:0;padding:0;max-height:min(46vh,340px);overflow-y:auto;display:flex;flex-direction:column;gap:5px;}
+.legend-saves{display:flex;flex-direction:column;flex:1;min-height:0;}
+.save-list{list-style:none;margin:0;padding:0;flex:1 1 0;min-height:150px;max-height:min(62vh,520px);overflow-y:auto;display:flex;flex-direction:column;gap:5px;}
 .save-empty{font-size:.78rem;color:var(--parch-400);font-style:italic;padding:3px 1px;}
 .save-item{display:flex;align-items:center;gap:8px;padding:4px;border-radius:5px;background:rgba(0,0,0,.22);}
 .save-thumb{flex:none;width:64px;height:48px;border-radius:4px;object-fit:cover;background:#000;border:1px solid var(--gold-700);}
@@ -679,8 +680,11 @@ body.has-saved-data .forget-data{display:block;}
         var li = document.createElement('li'); li.className = 'save-item';
         var img = document.createElement('img'); img.className = 'save-thumb'; img.alt = '';
         thumbGet(n).then(function (url) {
-          if (!url && window.BUNDLED_THUMBS) url = window.BUNDLED_THUMBS[n];   // pre-baked preview for the bundled Level N saves
-          if (url) img.src = url; else img.classList.add('no-thumb');
+          var bundled = window.BUNDLED_THUMBS && window.BUNDLED_THUMBS[n];   // pre-baked preview for the bundled Level N saves
+          img.onerror = function () { img.onerror = null; if (bundled) img.src = bundled; else img.classList.add('no-thumb'); };
+          if (url) img.src = url;                 // the player's own snapshot, if any
+          else if (bundled) img.src = bundled;    // else the bundled level preview
+          else img.classList.add('no-thumb');
         });
         li.appendChild(img);
         var nm = document.createElement('span'); nm.className = 'save-item-name';
@@ -695,6 +699,7 @@ body.has-saved-data .forget-data{display:block;}
         load.type = 'button'; load.className = 'save-load'; load.textContent = 'Load';
         load.addEventListener('click', function () {
           try { Module.ccall('pop2_load_slot', 'void', ['string'], [n]); } catch (e) {}
+          if (ctlCb) ctlCb.checked = false;   // close the menu so the loaded game is visible
         });
         var del = document.createElement('button');
         del.type = 'button'; del.className = 'save-del'; del.textContent = '✕'; del.title = 'Delete';
