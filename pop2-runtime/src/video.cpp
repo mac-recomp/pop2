@@ -123,9 +123,13 @@ int mac_vkey(SDL_Scancode sc) {
     case SDL_SCANCODE_CAPSLOCK: return 0x39;
     case SDL_SCANCODE_LALT: return 0x3A;
     case SDL_SCANCODE_LCTRL: return 0x3B;
-    case SDL_SCANCODE_RSHIFT: return 0x3C;
+    // Right Shift/Ctrl map to the SAME vkeys as the left ones so both sides drive
+    // the game's "careful step / grab" (Shift) and "sword" (Ctrl) — the player's
+    // hands differ by keyboard. The modifier flags already cover both (KMOD_*);
+    // this also sets the held KeyMap bit the game polls. (Was 0x3C / 0x3E, unused.)
+    case SDL_SCANCODE_RSHIFT: return 0x38;
     case SDL_SCANCODE_RALT: return 0x3D;
-    case SDL_SCANCODE_RCTRL: return 0x3E;
+    case SDL_SCANCODE_RCTRL: return 0x3B;
     case SDL_SCANCODE_KP_PERIOD: return 0x41;
     case SDL_SCANCODE_KP_MULTIPLY: return 0x43;
     case SDL_SCANCODE_KP_PLUS: return 0x45;

@@ -232,7 +232,13 @@ kbd{font-family:var(--font-mono);font-size:.66rem;color:var(--parch-100);min-wid
   display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);gap:6px;
   width:clamp(132px,36vw,180px);height:clamp(132px,36vw,180px);}
 .tc-actions{position:absolute;bottom:clamp(10px,3vw,22px);right:clamp(10px,3vw,22px);
-  display:flex;flex-direction:column;gap:10px;align-items:flex-end;}
+  width:clamp(158px,40vw,200px);height:clamp(128px,32vw,162px);}
+.tc-actions .tc-act{position:absolute;}
+.tc-attack{right:0;bottom:0;}                                   /* primary: under the thumb */
+.tc-step{right:clamp(72px,18.5vw,92px);bottom:clamp(46px,11.5vw,58px);}  /* secondary: up-left */
+/* Menu kept small and up top, far from the action thumbs (no accidental pause) */
+.tc-menu-btn{position:absolute;top:clamp(8px,2.4vw,15px);left:50%;transform:translateX(-50%);
+  width:clamp(48px,12vw,58px);height:clamp(30px,7vw,36px);border-radius:8px;font-size:1rem;}
 .tc-btn{
   pointer-events:auto;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;
   display:flex;align-items:center;justify-content:center;
@@ -249,7 +255,7 @@ kbd{font-family:var(--font-mono);font-size:.66rem;color:var(--parch-100);min-wid
 .tc-pad .tc-btn::after{content:"";display:block;width:0;height:0;border-left:13px solid transparent;border-right:13px solid transparent;border-bottom:20px solid var(--gold-300);filter:drop-shadow(0 1px 1px rgba(0,0,0,.5));}
 .tc-up::after{transform:rotate(0deg);} .tc-right::after{transform:rotate(90deg);}
 .tc-down::after{transform:rotate(180deg);} .tc-left::after{transform:rotate(270deg);}
-.tc-act{width:clamp(58px,16vw,76px);height:clamp(58px,16vw,76px);border-radius:50%;font-size:.6rem;letter-spacing:.05em;text-transform:uppercase;text-align:center;line-height:1.1;}
+.tc-act{width:clamp(62px,16.5vw,80px);height:clamp(62px,16.5vw,80px);border-radius:50%;font-size:.64rem;letter-spacing:.04em;text-transform:uppercase;text-align:center;line-height:1.05;}
 /* (legend-assists/legend-saves now sit in .legend-section grid columns) */
 .assist-row{display:flex;align-items:center;gap:9px;padding:6px 0;font-size:.8rem;color:var(--parch-200);cursor:pointer;}
 .assist-row input{appearance:none;-webkit-appearance:none;flex:none;width:18px;height:18px;border:1px solid var(--gold-700);border-radius:4px;background:rgba(0,0,0,.35);cursor:pointer;position:relative;transition:background .15s,border-color .15s;}
@@ -332,16 +338,16 @@ body.has-saved-data .forget-data{display:block;}
 
       <!-- on-screen touch controls (shown only on touch devices while playing) -->
       <div class="touch-controls" aria-hidden="true">
+        <button class="tc-btn tc-menu-btn" type="button" data-vk="53" aria-label="Menu / pause">☰</button>
         <div class="tc-pad">
-          <button class="tc-btn tc-up"    type="button" data-vk="126" aria-label="Up">▲</button>
+          <button class="tc-btn tc-up"    type="button" data-vk="126" aria-label="Up / jump / climb">▲</button>
           <button class="tc-btn tc-left"  type="button" data-vk="123" aria-label="Left">◀</button>
           <button class="tc-btn tc-right" type="button" data-vk="124" aria-label="Right">▶</button>
-          <button class="tc-btn tc-down"  type="button" data-vk="125" aria-label="Down">▼</button>
+          <button class="tc-btn tc-down"  type="button" data-vk="125" aria-label="Down / crouch">▼</button>
         </div>
         <div class="tc-actions">
-          <button class="tc-btn tc-act" type="button" data-vk="56" aria-label="Careful step, grab, draw sword">Grab<br>Sword</button>
-          <button class="tc-btn tc-act" type="button" data-vk="59" aria-label="Strike with sword">Strike</button>
-          <button class="tc-btn tc-act" type="button" data-vk="53" aria-label="Menu">Menu</button>
+          <button class="tc-btn tc-act tc-step"   type="button" data-vk="56" aria-label="Careful step, grab a ledge, pick up">Step</button>
+          <button class="tc-btn tc-act tc-attack" type="button" data-vk="59" aria-label="Draw sword and attack">Attack</button>
         </div>
       </div>
     </div>
@@ -379,10 +385,11 @@ body.has-saved-data .forget-data{display:block;}
         <button id="new-game" class="menu-action" type="button">✦&nbsp; New Game</button>
         <div class="legend-section">
           <span class="legend-title">Controls</span>
-          <div class="legend-row"><span class="legend-keys"><kbd>←</kbd><kbd>→</kbd><kbd>↑</kbd><kbd>↓</kbd></span><span class="legend-desc"><b>Move</b>, climb &amp; jump</span></div>
-          <div class="legend-row"><span class="legend-keys"><kbd>Shift</kbd></span><span class="legend-desc"><b>Careful step</b> · grab ledge · draw sword</span></div>
-          <div class="legend-row"><span class="legend-keys"><kbd>Ctrl</kbd></span><span class="legend-desc"><b>Strike</b> — attack with the sword</span></div>
+          <div class="legend-row"><span class="legend-keys"><kbd>←</kbd><kbd>→</kbd><kbd>↑</kbd><kbd>↓</kbd></span><span class="legend-desc"><b>Run, jump &amp; climb</b> — ↑ also blocks in a swordfight</span></div>
+          <div class="legend-row"><span class="legend-keys"><kbd>Ctrl</kbd></span><span class="legend-desc"><b>Sword</b> — draw it, then each press is a strike</span></div>
+          <div class="legend-row"><span class="legend-keys"><kbd>Shift</kbd></span><span class="legend-desc"><b>Careful step</b> · grab a ledge · pick up</span></div>
           <div class="legend-row"><span class="legend-keys"><kbd>Esc</kbd></span><span class="legend-desc">In-game <b>menu</b> &amp; pause</span></div>
+          <div class="legend-row"><span class="legend-desc" style="opacity:.62;font-size:.9em;padding-left:2px">Ctrl &amp; Shift work on either side of the keyboard. The original's numpad and letter-key controls also still work.</span></div>
         </div>
         <div class="legend-section">
           <span class="legend-title">Assists</span>
