@@ -144,16 +144,33 @@ static uint32_t make_window(int16_t wind_id, uint32_t storage,
     return w;
 }
 
-static uint32_t ticks_now() {
+static uint32_t s_tick_offset = 0;   // assist: rewind the game clock to add time
+static uint32_t raw_ticks() {
     using namespace std::chrono;
     static const steady_clock::time_point start = steady_clock::now();
-    uint32_t t = uint32_t(duration_cast<milliseconds>(steady_clock::now() -
-                                                      start).count() * 60 / 1000);
+    return uint32_t(duration_cast<milliseconds>(steady_clock::now() -
+                                                start).count() * 60 / 1000);
+}
+static uint32_t ticks_now() {
+    uint32_t t = raw_ticks() - s_tick_offset;   // s_tick_offset <= raw (capped on set)
     mem_write32(0x16A, t);   // low-mem Ticks: the MDRV synth polls it raw
     return t;
 }
 
 uint32_t ticks_live() { return ticks_now(); }
+
+// Assist: grant `minutes` of game time by rewinding the clock the game reads for
+// its time limit (the game tracks elapsed = TickCount - start_tick). Ticks run
+// 60/sec, so a minute is 3600 ticks. Capped so TickCount stays >= 60 and can
+// never underflow or stall — the offset can't exceed the real elapsed ticks
+// (and the early game, where it would, has ample time anyway).
+void time_add_minutes(int minutes) {
+    if (minutes <= 0) return;
+    uint32_t raw = raw_ticks();
+    uint32_t cap = raw > 60 ? raw - 60 : 0;
+    uint32_t want = s_tick_offset + uint32_t(minutes) * 3600u;
+    s_tick_offset = want < cap ? want : cap;
+}
 
 static int64_t now_us() {
     using namespace std::chrono;

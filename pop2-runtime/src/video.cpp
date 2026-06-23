@@ -1153,6 +1153,11 @@ extern "C" EMSCRIPTEN_KEEPALIVE int pop2_dbg_peek16(unsigned addr) {
 extern "C" EMSCRIPTEN_KEEPALIVE unsigned pop2_dbg_peek32(unsigned addr) {
     return mem_read32(addr & 0xFFFFFF);                 // 32-bit guest read (pointers)
 }
+// Assist: grant the player N more minutes of game time (rewinds the clock the
+// game reads for its time limit). Wired to the "+10 min" menu button.
+extern "C" EMSCRIPTEN_KEEPALIVE void pop2_add_time(int minutes) {
+    time_add_minutes(minutes);
+}
 
 // Inject a Cmd+<letter> menu command straight into the game's event queue,
 // bypassing the browser (which would eat real Cmd+S/O/N). The game's loop sees

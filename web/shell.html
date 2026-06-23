@@ -168,6 +168,9 @@ body::before{
 .legend-section .legend-title{display:block;margin-bottom:8px;}
 .menu-action{width:100%;background:linear-gradient(180deg,rgba(240,216,148,.18),rgba(240,216,148,.05));border:1px solid var(--gold-500);color:var(--gold-300);font-family:var(--font-display);font-weight:600;font-size:.82rem;letter-spacing:.12em;text-transform:uppercase;border-radius:6px;padding:11px;cursor:pointer;transition:background .15s;}
 .menu-action:hover{background:linear-gradient(180deg,rgba(240,216,148,.3),rgba(240,216,148,.12));}
+.assist-action{margin-top:10px;width:100%;background:rgba(240,216,148,.08);border:1px solid var(--border-faint);color:var(--gold-300);font-family:var(--font-display);font-size:.74rem;letter-spacing:.05em;border-radius:6px;padding:9px;cursor:pointer;transition:background .15s;}
+.assist-action:hover{background:rgba(240,216,148,.16);}
+.assist-action:disabled{opacity:.65;cursor:default;}
 @media (max-width:600px){.legend-grid{grid-template-columns:1fr;gap:16px;}}
 
 /* adaptive layout: game + a controls rail — rail below on narrow, beside on wide */
@@ -381,6 +384,7 @@ body.has-saved-data .forget-data{display:block;}
           <span class="legend-title">Assists</span>
           <label class="assist-row"><input type="checkbox" id="assist-invincible" /><span>Invincibility — never lose health</span></label>
           <label class="assist-row"><input type="checkbox" id="assist-hp" /><span>Start each level with 6 health (instead of 3)</span></label>
+          <button id="add-time" class="assist-action" type="button" title="Rewinds the game clock, giving you more time before the game's time limit">＋&nbsp; Add 10 minutes of game time</button>
         </div>
       </div>
       <div class="legend-col">
@@ -716,6 +720,17 @@ body.has-saved-data .forget-data{display:block;}
     if (newGameBtn) newGameBtn.addEventListener('click', function () {
       if (Module._pop2_menu_cmd) Module._pop2_menu_cmd('N'.charCodeAt(0));
       if (ctlCb) ctlCb.checked = false;
+    });
+
+    // ---- Add time: rewind the game clock so the time limit is further off ----
+    var addTimeBtn = document.getElementById('add-time');
+    if (addTimeBtn) addTimeBtn.addEventListener('click', function () {
+      if (!Module._pop2_add_time) return;
+      Module._pop2_add_time(10);
+      var label = addTimeBtn.textContent;
+      addTimeBtn.textContent = '✓  Added 10 minutes';
+      addTimeBtn.disabled = true;
+      setTimeout(function () { addTimeBtn.textContent = label; addTimeBtn.disabled = false; }, 1400);
     });
 
     // ---- picker build: forget the remembered data archive ----
