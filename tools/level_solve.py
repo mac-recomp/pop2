@@ -67,7 +67,10 @@ class Grid:
             L, R, U, Dn = D.links_of(self.buf, room)
             for nb, (dx, dy) in ((L, (-1, 0)), (R, (1, 0)),
                                  (U, (0, -1)), (Dn, (0, 1))):
-                if nb in self.rooms and nb not in self.pos:
+                # follow links to ANY valid room (1..32), including tile-empty
+                # passage rooms you fall through (e.g. L6 room 28 -D-> empty 14
+                # -D-> room 10). A 0 link is "none" and is skipped.
+                if 1 <= nb <= 32 and nb not in self.pos:
                     self.pos[nb] = (gx + dx, gy + dy)
                     q.append(nb)
         # rooms not reachable through links from root: drop a row below, side by

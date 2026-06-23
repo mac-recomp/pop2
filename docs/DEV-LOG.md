@@ -977,3 +977,20 @@ far rooms are reached by triggers the link graph can't follow). 677 cells. Close
 loop in-engine: loading L12 with the assist makes all 45 of its table cells floor.
 (Tooling note: a stale tools/__pycache__ briefly masked the change for one level --
 clear it after editing decode_level.py.)
+
+## 2026-06-23 — Platform assist: the 3 unverified levels are provably event-gated
+
+Chased why L2/L6/L11 wouldn't traverse. First fix (correct in general): the solver
+now lays out tile-empty *passage* rooms you fall through (a 0 link is "none" and
+skipped, so only real link chains are followed) -- e.g. L6 room 28 -D-> empty 14
+-D-> room 10. But it changed nothing here, because the real blocker is geometry:
+L6's start cluster is **sealed by a wall**. The kid spawns in room 27 (floor cols
+0-4), walks left into room 28, but room 28's only floor is cols 7-9 with a WALL at
+col 6 -- the empty columns that drop into passage room 14 are behind that wall. So
+there is no walkable path out of the start cluster; the connection to the main level
+must be an in-game **event** (a lever/gate the player triggers), which a static
+link/tile analysis cannot follow. L2 (reaches 45 cells) and L11 (38) are the same
+shape: partially open, then event-gated. So 11/14 levels are traversal-verified and
+the other 3 are verified *as far as the level design allows statically* -- their
+platforms are still geometry-filled in every room and render (L6 confirmed by
+teleport). Closing those needs the event system decoded or a human playtest.
