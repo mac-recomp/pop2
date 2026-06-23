@@ -1443,6 +1443,11 @@ static void tb_trap(Cpu& cpu, uint16_t op) {
     case 0xA93E: {  // MenuKey(ch): LongInt — match key equivalents
         uint8_t ch = uint8_t(arg_w(cpu) & 0xFF);
         if (ch >= 'a' && ch <= 'z') ch = uint8_t(ch - 32);
+        // A bare modifier (e.g. the Cmd/Super key pressed during a window switch)
+        // produces MenuKey(0). Without this guard it matched the first item with
+        // no key-equivalent (key byte 0) — the Apple menu's "About" — which opened
+        // the About dialog and hit an unimplemented trap, aborting the whole game.
+        if (ch == 0) { ret_l(cpu, 0); return; }
         for (const auto& [mid, mh] : s_menus) {
             uint32_t p = mem_read32(mh);
             uint32_t q = p + 14;                 // title (Pascal string)
@@ -1589,6 +1594,23 @@ static void tb_trap(Cpu& cpu, uint16_t op) {
         qd_rect_op(s_cur_port, arg_l(cpu), op - 0xA8A1); return;
     case 0xA8A5: {  // FillRect(r, pat)
         uint32_t pat = arg_l(cpu);
+        qd_rect_op(s_cur_port, arg_l(cpu), 4, pat);
+        return;
+    }
+    case 0xA8B0: case 0xA8B1: case 0xA8B2: case 0xA8B3: {   // Frame/Paint/Erase/InvertRoundRect
+        // RoundRect = the rect op with rounded corners. Ignore the corner ovals
+        // (square corners look fine) and reuse the rect path, so these are never
+        // the "unimplemented trap" that aborted the game (the About dialog draws
+        // its border with FrameRoundRect — see the MenuKey(0) fix above).
+        (void)arg_w(cpu);                 // ovalHeight
+        (void)arg_w(cpu);                 // ovalWidth
+        qd_rect_op(s_cur_port, arg_l(cpu), op - 0xA8B0);
+        return;
+    }
+    case 0xA8B4: {  // FillRoundRect(r, ovalWidth, ovalHeight, pat)
+        uint32_t pat = arg_l(cpu);
+        (void)arg_w(cpu);                 // ovalHeight
+        (void)arg_w(cpu);                 // ovalWidth
         qd_rect_op(s_cur_port, arg_l(cpu), 4, pat);
         return;
     }
