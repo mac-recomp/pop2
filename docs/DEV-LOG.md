@@ -947,3 +947,17 @@ traversal-verified end-to-end on 10; the open items are vertical fatal-fall cush
 (need accurate fall physics) and event-gated cross-cluster traversal — both better
 settled by a human playtest than guessed at. The per-level provenance/flags in
 tools/platform-tables.txt are the review list.
+
+## 2026-06-23 — Platform assist: 2-row climb-grab fixes the room-seam traversal
+
+The solver's vertical reach was one grid-row, but a room seam is often floor / a row
+of headroom / floor-above (two rows). Added a climb-grab to a ledge two rows up when
+the way up is clear (climbing/grabbing is not a horizontal jump, so it is allowed in
+the no-jump model). Validated against the already-verified levels: it never lowered
+any level's reachability and matched the designer's room-link graph, so it aligns the
+model to real connectivity rather than over-reaching. Effect: **L14 (the finale)
+5 -> 105 reachable and now fully no-jump traversable; L7 163 -> 313; L3 now 350/350
+(0 unreached); L12 11 -> 3 and L13 36 -> 23 residual.** Eleven levels now verify
+end-to-end (added L14); only L2/L6/L11 remain on the geometry fallback (event-gated
+room clusters the link graph can't follow). Table is 678 cells (more surgical than
+the 716 blanket pass). Spot-checked the L14 finale start room renders intact.

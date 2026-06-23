@@ -115,7 +115,13 @@ def neighbors(g, cell, extra, allow_jump, fall_limit):
             if land is not None and dist >= 1:
                 out.append((land, nc))                # drop / fall
         if g.stand(gr - 1, nc, extra):
-            out.append((gr - 1, nc))                  # climb up one
+            out.append((gr - 1, nc))                  # climb up one (adjacent)
+    # climb-grab a ledge two rows up (a room-seam climb: floor, a row of head-
+    # room, floor above) when the way up is clear. Climbing/grabbing is not a
+    # horizontal jump, so it is allowed in the no-jump model.
+    for dc in (-1, 0, 1):
+        if g.stand(gr - 2, gc + dc, extra) and not g.stand(gr - 1, gc + dc, extra):
+            out.append((gr - 2, gc + dc))
     if allow_jump:
         for dc in (-1, 1):
             for k in range(2, JUMP + 1):
