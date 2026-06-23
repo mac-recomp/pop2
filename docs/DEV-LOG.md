@@ -842,3 +842,26 @@ browser match of the native dump. So the toggle's mid-level recompile path
 (`g_recompile_in = 2`) works in the slow wasm build too. The platform assist is now
 usable from the menu. Remaining: end-to-end playtest of each level's table and the
 table refinements (cross-room edge gaps, fatal-drop cushions, levels 1-2).
+
+## 2026-06-23 — Platform assist: a Level 1 table + the intro levels are sparse
+
+A playtest note (the "Build platforms" toggle looked like a no-op on level 1)
+turned out to be expected: the tables are keyed by level and there was none for
+level 1 (no bundled save to dump). Got level 1's geometry from
+`extracted_sit/Level 1.save-backup` (temp-copied into the game root, dumped via
+`POP2_DUMP_STATE`, removed) and level 2's by patching that backup's level byte
+(@0x42) to 2 — the tile array comes from the level *resource*, so the wrong kid
+position in the save doesn't matter for the dump. Added `LEVEL 1` (5 cells, rooms 1
+& 3) to the table and regenerated; verified the cells fill in the live array.
+
+But the intro levels are genuinely sparse for this analyzer: level 2 yields **zero**
+interior pits, and level 1 only those 5 — and its *start* room is the rooftop
+(the opening swordfight), which has no fillable pit, so a New Game still shows no
+platform at the top even with the assist on (matches the report). The level-1 map
+confirms its real traversal challenges are cross-room edge gaps (e.g. room 4's right
+edge, cols 8-9) and inter-room level changes — exactly the classes the same-row
+interior analyzer skips. So the conservative auto-tables shine on the big levels
+(3-14, 10-53 cells) but barely touch 1-2. Filling cross-room/wide gaps safely (a
+walkway to bridge vs. an intended climb-down shaft, without blocking a required path)
+is a judgement call best driven by playtest feedback — deferred to that pass. To
+*see* the assist now, load a Level 3+ save and toggle it.
