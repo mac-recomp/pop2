@@ -22,6 +22,8 @@ namespace pop2 {
 
 const char* trap_display_name(uint16_t op);
 
+extern int g_post_load_pump;   // video.cpp: post-load sim/render-gate window
+
 static const bool s_trace = std::getenv("POP2_TRACE_TRAPS") != nullptr;
 
 // ---- UI state (headless for now) ----
@@ -1197,6 +1199,11 @@ static void tb_trap(Cpu& cpu, uint16_t op) {
                 // level-14 finale still drains.
                 mem_write16(A5_BASE - 20462, 0);
                 mem_write16(A5_BASE - 20656, 0);
+                // a5-20462 also gates the main loop's per-frame render; after a
+                // load it can stay 0 and the loaded level sits frozen. Have
+                // video_pump re-assert it for a window of frames so the camera
+                // settles and the scene draws (a5-20656 stays 0 -> no drain leak).
+                g_post_load_pump = 180;
             }
             mem_write8(replyp, name.empty() ? 0 : 1);
             mem_write8(replyp + 1, 0);

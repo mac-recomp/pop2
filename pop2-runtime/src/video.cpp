@@ -580,6 +580,11 @@ void present() {
 
 }  // namespace
 
+// External linkage (set by the SFGetFile trap in traps.cpp): re-assert the
+// main loop's per-frame sim/render gate (a5-20462) for this many video_pump
+// calls after a load, so the loaded scene draws instead of sitting frozen.
+int g_post_load_pump = 0;
+
 void video_set_color(int index, uint8_t r, uint8_t g, uint8_t b) {
     if (index < 0 || index > 255) return;
     s_pal[index] = 0xFF000000u | (uint32_t(r) << 16) | (uint32_t(g) << 8) | b;
@@ -622,6 +627,26 @@ void video_pump() {
         if (++s_idle_n >= 64) { s_idle_n = 0; pop2_yield_to_browser(); }
 #endif
         return;
+    }
+
+    // --- Load-freeze fix (native + web) ----------------------------------
+    // The in-level main loop draws/settles the camera only when a5-20462 is
+    // set — it gates the per-frame update f2_674c (which calls the playfield
+    // render f3_324e). After loading a saved game that gate can be 0, so the
+    // loop spins without ever redrawing: picture frozen, no input, sound fades.
+    // It's a timing race the slow web build loses far more often than native.
+    // Re-assert the gate for a window of pumps after each load so the scene
+    // renders and the camera settles. The HP-drain *delta* (a5-20656) is zeroed
+    // at load and only the finale rearms it, so the cross-load drain leak stays
+    // fixed. POP2_FORCE_GATE pins the gate to a value (diagnostic).
+    {
+        static const char* s_force_gate = std::getenv("POP2_FORCE_GATE");
+        if (s_force_gate) {
+            mem_write16(0x080000u - 20462, uint16_t(std::atoi(s_force_gate)));
+        } else if (g_post_load_pump > 0) {
+            --g_post_load_pump;
+            mem_write16(0x080000u - 20462, 1);
+        }
     }
 
 #ifdef __EMSCRIPTEN__
