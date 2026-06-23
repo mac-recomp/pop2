@@ -270,7 +270,11 @@ kbd{font-family:var(--font-mono);font-size:.66rem;color:var(--parch-100);min-wid
 .save-do{flex:none;background:rgba(240,216,148,.12);border:1px solid var(--gold-500);color:var(--gold-300);font-family:var(--font-display);font-weight:600;font-size:.68rem;letter-spacing:.14em;text-transform:uppercase;border-radius:5px;padding:5px 13px;cursor:pointer;}
 .save-do:hover{background:rgba(240,216,148,.22);}
 .legend-saves{display:flex;flex-direction:column;flex:1;min-height:0;}
-.save-list{list-style:none;margin:0;padding:0;flex:1 1 0;min-height:150px;max-height:min(62vh,520px);overflow-y:auto;display:flex;flex-direction:column;gap:5px;}
+.save-list{list-style:none;margin:0;padding:0 6px 0 0;flex:1 1 0;min-height:150px;max-height:min(62vh,520px);overflow-y:auto;scrollbar-gutter:stable;display:flex;flex-direction:column;gap:5px;scrollbar-width:thin;scrollbar-color:var(--gold-700) rgba(0,0,0,.25);}
+.save-list::-webkit-scrollbar{width:8px;}
+.save-list::-webkit-scrollbar-track{background:rgba(0,0,0,.22);border-radius:4px;margin:2px;}
+.save-list::-webkit-scrollbar-thumb{background:var(--gold-700);border-radius:4px;}
+.save-list::-webkit-scrollbar-thumb:hover{background:var(--gold-500);}
 .save-empty{font-size:.78rem;color:var(--parch-400);font-style:italic;padding:3px 1px;}
 .save-item{display:flex;align-items:center;gap:8px;padding:4px;border-radius:5px;background:rgba(0,0,0,.22);}
 .save-thumb{flex:none;width:64px;height:48px;border-radius:4px;object-fit:cover;background:#000;border:1px solid var(--gold-700);}
