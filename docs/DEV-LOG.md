@@ -917,3 +917,33 @@ record provenance, the fills the solver *removed* as drop-blockers, and the spot
 that still need a jump (e.g. L10 19, L13 36). Table is now 716 cells. Spot-checked
 L7/L8 render intact. Next: improve the vertical model to verify L2/6/11/14 and
 close the residual unreached spots on L10/12/13.
+
+## 2026-06-23 — Platform assist: all-level verification pass
+
+Verified the tables two model-light ways across all 14 levels (autonomous night run):
+
+* `tools/verify_tables.py` trusts the designer's room graph: BFS the L/R/U/D links
+  from the start, then check every horizontal jump-gap in the link-reachable rooms
+  is bridged. Result: **0 real misses** — the only 9 "unfilled" horizontal gaps are
+  exactly the cells the solver rejected as drop-blockers, i.e. they are drop-points
+  you descend through, not jumps you cross, so leaving them open is correct.
+* Link reachability also rescues levels the cell-solver could not traverse: **L11
+  reaches 32/32 rooms** via links (all 46 gaps covered) though the cell model stalled.
+  Honest gaps remain on **L2 (5/20), L6 (2/24), L14 (11/20)**: their start area is a
+  separate link cluster wired to the rest by game *events/triggers* (e.g. L6 room 28's
+  down-link points at empty room 14), which the simple link graph can't follow. The
+  geometry heuristic still fills every room's horizontal gaps there, so the platforms
+  exist level-wide; only cross-cluster traversal is unverified.
+
+The solver's remaining `still_unreached` spots (L10 19, L12 11, L13 36) are almost
+all whole-rows of rooms entered by a vertical transition the movement model gets
+wrong (e.g. L10 room 26's entire row 1) — model artifacts, not missing bridges
+(horizontal coverage there is complete).
+
+Visual pass: loaded all 14 levels with the assist and snapshotted each start room
+(contact sheet) — every level renders intact, no broken/over-filled rooms. Net: the
+horizontal "no jumps" goal is fully covered in reachable rooms on all 14 levels and
+traversal-verified end-to-end on 10; the open items are vertical fatal-fall cushions
+(need accurate fall physics) and event-gated cross-cluster traversal — both better
+settled by a human playtest than guessed at. The per-level provenance/flags in
+tools/platform-tables.txt are the review list.
