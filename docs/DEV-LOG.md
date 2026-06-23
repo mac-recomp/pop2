@@ -865,3 +865,28 @@ interior analyzer skips. So the conservative auto-tables shine on the big levels
 walkway to bridge vs. an intended climb-down shaft, without blocking a required path)
 is a judgement call best driven by playtest feedback — deferred to that pass. To
 *see* the assist now, load a Level 3+ save and toggle it.
+
+## 2026-06-23 — Platform assist: wider analyzer (interior any-width + edge seams)
+
+Expanded `tools/level_platforms.py` past the narrow same-row interior pits:
+
+  * interior gaps are now filled at **any width** (the goal is no horizontal
+    jumps, so a 6- or 8-wide pit should bridge too), not just <=4. Wider than 4 is
+    still filled but **flagged** — it might be an intended drop.
+  * **cross-room edge seams**: a run reaching a room's right edge (col 9) is
+    bridged into the right-neighbour room when that neighbour's SAME row has a
+    walkway to land on (L/R transitions preserve the row, so a same-row walkway =
+    a flat walk to continue). Guard: if the neighbour's row has no walkable tile
+    (a level change, not a flat walk — e.g. L1 room 4 -> room 5, whose row 1 is
+    empty/wall) nothing is filled, so we never bridge into a void. Capped at 5
+    cells, and every cross-room cell is flagged.
+
+Re-dumped all 14 level states (dummy SDL driver; L1 from the save-backup, L2 via
+the level-byte-patched backup) and regenerated the table: **610 cells (was 348),
+257 flagged**. Per-level `# FLAGS N:` lines in `tools/platform-tables.txt` list
+every flagged cell with its reason (`wide pit (N)` / `edge->Rk` / `edge<-Rk`) — the
+playtest review list. Vertical fatal-fall cushions are still NOT auto-placed (the
+remaining TODO; needs per-spot judgement). Spot-checked L5 and L8 (heaviest, 103
+cells) headless: start rooms render intact, no catastrophic over-fill. Levels 1-2
+stay sparse — even the edge pass finds nothing fillable in L2 (its gaps are all
+level changes), which is the guard working as intended.
