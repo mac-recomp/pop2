@@ -8,6 +8,12 @@
 # specific staircase rungs that turn a deadly shaft into a row-at-a-time climb-down
 # are listed here instead.
 
+# L1 (env5 rooftops) room11 -> room6 descent: the kid drops from room11 row0 down
+# a 3-tile cross-seam shaft to the lone solver cushion and dies. Diagonal staircase
+# down-left (room11 c4r1, c3r2 -> room6 c2r0) so he steps down a row at a time onto
+# room6's row1 floor, then walks left to the room15 exit.
+1: 11:14,11:23,6:2
+
 # L3 room18 -> room20 open-pit descent. room20's rows 0-1 are an open pit (the kid
 # must reach row2 then walk left to the room21 exit). A free fall across the seam
 # is fatal even at "safe" depth, and the solver's BFS can only model a sideways-step
