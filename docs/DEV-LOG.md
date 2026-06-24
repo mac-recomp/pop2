@@ -1112,3 +1112,13 @@ edge-triggered pull-up. Where there is no headroom above the target (a solid blo
 caps the ledge) the mantle is physically impossible regardless of input -- those
 spots are level geometry that historically needed a jump, which the fill/clear
 assist is meant to remove, not a navigator bug.
+
+## 2026-06-24 — Manual fall cushions (tools/manual-fills.txt)
+
+A free fall that crosses a room seam is fatal in-game even at the solver's safe
+depth, but auto-filling every cross-seam shaft over-fills and seals no-jump paths
+(it regressed several levels). So validated, hand-picked staircase rungs now live in
+tools/manual-fills.txt and rebuild_tables.py merges them into the per-level tables.
+First entry: L3's room18->room20 col7 shaft (18:27,20:7) -- with it the kid climbs
+down a row at a time instead of free-falling across the seam to his death, taking
+the L3 auto-nav from ~waypoint 67 to past 70 (deeper into room20's cavern).

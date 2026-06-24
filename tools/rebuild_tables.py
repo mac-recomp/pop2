@@ -55,6 +55,31 @@ def parse_starts(path):
     return st
 
 
+def parse_manual(path):
+    """Hand-picked extra fills the solver's model can't place safely on its own,
+    validated in-game. Lines: 'N: room:idx,room:idx,...'. Used for fatal-fall
+    cushions in cross-room shafts (a free fall across a room seam is fatal even at
+    safe depth, but auto-filling every such shaft over-fills and seals no-jump
+    paths, so these specific staircases are added by hand)."""
+    out = {}
+    if not os.path.exists(path):
+        return out
+    for line in open(path):
+        line = line.split('#', 1)[0].strip()
+        m = re.match(r'(\d+):\s*(.*)', line)
+        if not m:
+            continue
+        lvl = int(m.group(1))
+        cells = []
+        for tok in m.group(2).split(','):
+            tok = tok.strip()
+            if tok:
+                r, i = tok.split(':')[:2]
+                cells.append((int(r), int(i)))
+        out.setdefault(lvl, []).extend(cells)
+    return out
+
+
 def grab(report, key):
     for line in report:
         if line.strip().startswith(key):
@@ -65,6 +90,8 @@ def grab(report, key):
 def main():
     sd, starts_path = sys.argv[1], sys.argv[2]
     starts = parse_starts(starts_path)
+    manual = parse_manual(os.path.join(os.path.dirname(__file__),
+                                       'manual-fills.txt'))
     lines = [HEADER.rstrip('\n')]
     summary = []
     for lvl in range(1, 15):
@@ -95,6 +122,10 @@ def main():
             else:
                 fills, mode = seed, 'geometry'
                 note = f'model stuck (only {full}/{wlk} reachable) -> geometry fill'
+        man = manual.get(lvl, [])
+        if man:
+            fills = sorted(set(fills) | set(man))
+            note += f' +{len(man)} manual'
         if fills:
             lines.append(f'LEVEL {lvl}: ' + ','.join(f'{r}:{i}' for r, i in fills))
         lines.append(f'# L{lvl} [{mode}] {note} | {len(fills)} cells')

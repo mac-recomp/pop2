@@ -1,0 +1,13 @@
+# Hand-picked platform-assist fills the solver's model can't place on its own,
+# each validated in-game. Format: "LEVEL: room:idx,room:idx,..." (idx = row*10+col).
+# Merged into the per-level tables by tools/rebuild_tables.py.
+#
+# Cross-room-seam fall cushions: a free fall that crosses a room seam is fatal
+# in-game even at the solver's safe depth (the seam relocation mis-scores the
+# fall). Auto-filling every such shaft over-fills and seals no-jump paths, so the
+# specific staircase rungs that turn a deadly shaft into a row-at-a-time climb-down
+# are listed here instead.
+
+# L3 room18 -> room20 shaft (col7): without these the kid free-falls across the
+# seam and dies; with them he climbs down a row at a time. Validated in-game.
+3: 18:27,20:7
