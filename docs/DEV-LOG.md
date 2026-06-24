@@ -1206,3 +1206,14 @@ navigator now positions the kid on that launch column before pressing Up. Remain
 the kid still overshoots the launch column at a dead run and oscillates reversing
 out of it -- a precise-positioning limit of the open-loop follower, not a missing
 platform (the cavern descent down to room21 is solid).
+
+## 2026-06-24 — Caverns room21: pulsed climb approach (kid reaches the launch col)
+
+The kid ran the length of room21's open row and overshot the climb's launch
+column; a held run can't be slowed to a careful step mid-stride. Fix: pulse the
+horizontal (walk rhythm) when a climb is within the next few waypoints and while
+positioning onto the launch column, so the kid stays at walking speed. He now
+arrives at the launch column (col5/6) instead of sailing to the wall at col4. The
+final mantle itself (room21's row2->row1 step has half-floors and tight headroom)
+still doesn't fire reliably -- a precise jump-grab at the edge of what the
+open-loop follower can do.

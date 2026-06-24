@@ -705,18 +705,31 @@ void present() {
                             // past the launch column and tries to climb where the
                             // ledge is wall-capped (the room21 stick).
                             int src = w.col + (w.lf ? 1 : w.rt ? -1 : 0);
+                            // Pulse the horizontal (walk rhythm, not a held run) so
+                            // the kid creeps onto the launch column without building
+                            // a run that overshoots it.
+                            bool step = (s_frame % 16) < 9;
                             if (kc > src) {
-                                s_keymap[0x7b>>3] |= uint8_t(1u<<(0x7b&7));  // Left
+                                if (step) s_keymap[0x7b>>3] |= uint8_t(1u<<(0x7b&7));
                             } else if (kc < src) {
-                                s_keymap[0x7c>>3] |= uint8_t(1u<<(0x7c&7));  // Right
+                                if (step) s_keymap[0x7c>>3] |= uint8_t(1u<<(0x7c&7));
                             } else {
                                 s_keymap[0x7e>>3] |= uint8_t(1u<<(0x7e&7));  // Up
                                 if (s_frame - s_climb_t0 > 30)               // stalled
                                     s_keymap[0x38>>3] |= uint8_t(1u<<(0x38&7)); // grab
                             }
                         } else {
-                            if (w.lf) s_keymap[0x7b>>3] |= uint8_t(1u<<(0x7b&7));
-                            if (w.rt) s_keymap[0x7c>>3] |= uint8_t(1u<<(0x7c&7));
+                            // Pulse the horizontal when a climb is within reach so the
+                            // kid arrives at the climb's launch column at walking
+                            // speed rather than running past it (the room21 overshoot).
+                            bool climb_soon = false;
+                            for (size_t j = i; j < s_nav.size() && j < i + 3; ++j)
+                                if (s_nav[j].up) climb_soon = true;
+                            bool step = !climb_soon || (s_frame % 16) < 9;
+                            if (step) {
+                                if (w.lf) s_keymap[0x7b>>3] |= uint8_t(1u<<(0x7b&7));
+                                if (w.rt) s_keymap[0x7c>>3] |= uint8_t(1u<<(0x7c&7));
+                            }
                         }
                     }
                 }
