@@ -1065,3 +1065,39 @@ the solver invent impossible routes and mis-place reachability:
 Reachability is now honest (it no longer counts cells only reachable by phasing
 through a wall), so the tables shrank and a few levels show more genuinely
 jump-required cells. Tables + the baked `.inc` regenerated (354 cells).
+
+## 2026-06-24 — Platform assist: robust auto-navigator + clear-the-way traps/gates
+
+Made the in-game auto-navigator (POP2_AUTONAV) actually follow a solver route
+through real terrain, and broadened "clear the way" so a no-jump/no-fall run does
+not die on static obstacles:
+
+* **Descents are a clean edge-hang.** On a drop waypoint the navigator settles
+  (releases keys) to bleed off the run, then steps into the gap at walking speed,
+  and never holds Down. Running off a ledge with momentum used to sail the kid past
+  a narrow landing into the pit below (the L3 room1→room4 death); now the fall is
+  ~vertical and lands in the intended column.
+* **Death detection ignores the seam transient.** Crossing a room seam by climbing
+  down flips seq to 206/hp0 for a single frame while the engine relocates the kid;
+  the nav "DIED" check (and the autokey death-skip) now require the corpse seq to
+  persist, so a controlled cross-seam descent isn't misread as a death.
+* **Arrival is tolerant.** The kid's cell drifts a tile off the plan (a climb-down
+  lands a row lower; a bp block is two tiles tall). Look-ahead skipping still needs
+  an exact match (so a diagonal neighbour can't skip a descent), but the current
+  target may be reached approximately (one tile on a single axis).
+* **Recompile on room change.** The per-frame driver lands falls against the
+  compiled per-column cache, not the live tiles, so a room entered by *falling* in
+  missed a freshly-stamped cushion and the kid tunnelled through it. Forcing a
+  recompile when the kid's room changes rebuilds the cache from the stamped tiles.
+* **Clear the way clears traps and gates.** Beyond zeroing enemy spawns, the assist
+  now converts static hazard tiles (spikes 2, debris-holes 14, blade halves 23/24,
+  spike-strip 33) and closed gates (4) to floor. These sit on otherwise-forced
+  routes (e.g. L3 room 16's only walkable row is spiked; room 17's path is gated),
+  so a level "with no horizontal jumps and no fatal falls" still died on them.
+
+With these, L3 auto-navigates from the start through ~10 rooms of caverns —
+descents, climbs, room-seam crossings, cleared spikes/blades, and an opened gate —
+to past its midpoint. The remaining stop is a deep cross-room shaft where a free
+fall across a seam is fatal even at safe depth; that is a navigator-precision /
+controlled-climb-down limit (the tables prove the level fully reachable), not a
+missing platform.

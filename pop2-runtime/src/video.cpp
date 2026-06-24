@@ -611,15 +611,42 @@ void present() {
             if (!started && seq == 15 && s_frame > 300) { started = s_frame; last_adv = s_frame;
                 std::fprintf(stderr, "[nav] start f%d at (r%d c%d row%d)\n", s_frame, kr, kc, ky); }
             if (started && !done) {
-                if (seq == 185 || seq == 206) {
+                // A real death holds the corpse seq for many frames; crossing a
+                // room seam (a controlled climb-down into the room below) briefly
+                // flips seq to 206/hp0 for a single frame while the engine
+                // recomputes the kid's room and position, then resumes the
+                // climb-down. Require the death state to persist so a seam crossing
+                // is not misread as a death.
+                static int s_dead_run = 0;
+                s_dead_run = (seq == 185 || seq == 206) ? s_dead_run + 1 : 0;
+                if (s_dead_run >= 12) {
                     std::fprintf(stderr, "[nav] DIED at waypoint %zu/%zu (r%d c%d row%d)\n",
                                  i, s_nav.size(), kr, kc, ky); done = true; clrkeys();
                 } else {
-                    // arrival + look-ahead (skip up to 5 cells)
-                    for (size_t j = i; j < s_nav.size() && j < i + 6; ++j)
+                    // Arrival + look-ahead. Skipping ahead (the kid is past several
+                    // planned cells) requires an EXACT match: take the farthest
+                    // waypoint in the window the kid actually occupies. Diagonal
+                    // adjacency must NOT skip -- col6,row0 is diagonally next to
+                    // col5,row1 but on a different surface, and treating that as
+                    // "arrived" would skip the descent. Separately, the current
+                    // target alone may be reached approximately (Manhattan <=1, no
+                    // diagonal): a climb-down lands a row lower and a 2-tile "bp"
+                    // block (tile 8/9) puts the kid a row off the model's single
+                    // walkable level, so a one-tile drift on a single axis still
+                    // counts as arrival.
+                    const size_t WIN = 12;
+                    size_t end = i + WIN < s_nav.size() ? i + WIN : s_nav.size();
+                    size_t hit = SIZE_MAX;
+                    for (size_t j = end; j-- > i; )
                         if (s_nav[j].room==kr && s_nav[j].col==kc && s_nav[j].row==ky) {
-                            i = j + 1; last_adv = s_frame; break;
+                            hit = j; break;
                         }
+                    if (hit == SIZE_MAX) {
+                        const Wp& w = s_nav[i];
+                        int dc = w.col - kc, dr = w.row - ky;
+                        if (w.room == kr && dc*dc + dr*dr <= 1) hit = i;
+                    }
+                    if (hit != SIZE_MAX) { i = hit + 1; last_adv = s_frame; }
                     if (i >= s_nav.size()) {
                         std::fprintf(stderr, "[nav] REACHED END (%zu waypoints, f%d)\n",
                                      s_nav.size(), s_frame); done = true; clrkeys();
@@ -631,10 +658,27 @@ void present() {
                     } else {
                         clrkeys();
                         const Wp& w = s_nav[i];
-                        if (w.up) s_keymap[0x7e>>3] |= uint8_t(1u<<(0x7e&7));
-                        if (w.dn) s_keymap[0x7d>>3] |= uint8_t(1u<<(0x7d&7));
-                        if (w.lf) s_keymap[0x7b>>3] |= uint8_t(1u<<(0x7b&7));
-                        if (w.rt) s_keymap[0x7c>>3] |= uint8_t(1u<<(0x7c&7));
+                        // A drop waypoint = step one tile into the adjacent gap and
+                        // fall straight down that column (the solver's drop model).
+                        // The danger is momentum: if the kid runs off the edge with
+                        // a horizontal key already held, he sails past a narrow
+                        // landing ledge into the pit beyond and dies. So before a
+                        // drop, settle for a beat (hold nothing) to bleed off the
+                        // run, then step into the gap at walking speed -- the fall is
+                        // then ~vertical and lands in the intended column. We never
+                        // press Down: when there is floor directly below the engine
+                        // reads Down as climb-down-in-place, which does not cross the
+                        // room seam the solver's drop goes through.
+                        static size_t s_settle_for = SIZE_MAX;
+                        static int s_settle_until = 0;
+                        if (w.dn && s_settle_for != i) {
+                            s_settle_for = i; s_settle_until = s_frame + 22;
+                        }
+                        if (!(w.dn && s_frame < s_settle_until)) {
+                            if (w.up) s_keymap[0x7e>>3] |= uint8_t(1u<<(0x7e&7));
+                            if (w.lf) s_keymap[0x7b>>3] |= uint8_t(1u<<(0x7b&7));
+                            if (w.rt) s_keymap[0x7c>>3] |= uint8_t(1u<<(0x7c&7));
+                        }
                     }
                 }
             }
@@ -798,9 +842,31 @@ void video_pump() {
         if (want_plat || want_no_enemies) {
             uint32_t st = mem_read32(0x080000u - 20500);
             if (st) {
-                if (want_no_enemies)
+                if (want_no_enemies) {
                     for (uint32_t room = 0; room <= 30; ++room)
                         mem_write16(st + 8422 + room * 192, 0);
+                    // Also clear static tile hazards (spikes / blades / choppers):
+                    // "clear the way" should clear traps, not just spawned enemies.
+                    // These damage or kill on contact and sit on otherwise-forced
+                    // routes -- e.g. L3 room 16's only walkable row crosses p33
+                    // spikes, room 15's only row crosses the bc blade -- so a level
+                    // with no horizontal jumps and no fatal falls still dies here
+                    // without it. Convert them to plain floor across every room.
+                    // Also open closed gates that block a forced route: a gate
+                    // (tile 4) is held shut until the player finds its pressure
+                    // plate, which the no-event traversal can't do, so convert it
+                    // to floor (passable) too.
+                    for (uint32_t room = 1; room <= 32; ++room)
+                        for (uint32_t idx = 0; idx < 30; ++idx) {
+                            uint32_t off = st + (room - 1) * 60 + idx * 2;
+                            uint8_t t = uint8_t(mem_read16(off) & 0xFF);
+                            // spikes(2), closed gate(4), debris/broken-floor hole
+                            // (14), blade halves(23/24), spike-strip(33)
+                            if (t == 2 || t == 4 || t == 14 || t == 23 ||
+                                t == 24 || t == 33)
+                                mem_write16(off, 1);
+                        }
+                }
                 for (const Plat& p : s_plat)
                     mem_write16(st + p.off, p.val);
                 // baked per-level table, keyed on the live level (state+8586)
@@ -824,6 +890,21 @@ void video_pump() {
                 // play is untouched; naturally-entered rooms already compile stamped.
                 if (want_plat && g_recompile_in > 0 && --g_recompile_in == 0)
                     mem_write16(0x080000u - 21064, 1);
+                // Also recompile whenever the kid enters a new room: the per-frame
+                // driver lands falls/draws against the compiled per-column cache,
+                // not the live tiles, and a room entered by FALLING in compiles
+                // before this frame's stamp lands -- so its cache misses the floor
+                // and the kid tunnels through a stamped mid-shaft cushion to his
+                // death. Forcing a recompile on the room change rebuilds the cache
+                // from the (stamped) live tiles so the cushion is solid on arrival.
+                if (want_plat) {
+                    static int s_last_room = -1;
+                    int room_now = int16_t(mem_read16(0x080000u - 20418));
+                    if (room_now != s_last_room) {
+                        s_last_room = room_now;
+                        mem_write16(0x080000u - 21064, 1);
+                    }
+                }
             }
         }
     }
@@ -1076,8 +1157,13 @@ void video_pump() {
         // keys and start the following attempt fresh — no input leak
         // plays over the corpse/respawn. A D reached alive is a no-op.
         static bool s_dead_ff = false;
+        // Require the corpse seq to persist: a room-seam climb-down briefly flips
+        // seq to 206 for a single frame while the engine relocates the kid into the
+        // room below, which must not be mistaken for a death.
+        static int s_dead_n = 0;
         uint16_t kfr = mem_read16(0x080000u - 20556);
-        if (kfr == 185 || kfr == 206) {
+        s_dead_n = (kfr == 185 || kfr == 206) ? s_dead_n + 1 : 0;
+        if (s_dead_n >= 12) {
             if (!s_dead_ff) {
                 const char* sp = autokey;
                 int j = 0;
