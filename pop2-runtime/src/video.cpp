@@ -1505,12 +1505,17 @@ void video_pump() {
         s_last_present = now;
         present();
 #ifdef __EMSCRIPTEN__
-        // Yield once per displayed frame so the canvas composites and input /
-        // timers run. video_pump() is the universal pump (every event poll and
-        // the Ticks busy-wait reach it), so the tab never locks up whichever
-        // guest loop is spinning, and the recompiled main loop is never
-        // restructured. MessageChannel yield avoids setTimeout's ~4ms clamp.
-        pop2_yield_to_browser();
+        // Frame-limit to ~60 Hz. video_pump() is the universal pump (every event
+        // poll and the recompiled main loop's VBL busy-wait reach it). Resuming
+        // ASAP made that busy-wait spin a full CPU core; instead, once a frame is
+        // drawn, idle the thread until the next frame is due (emscripten_sleep =
+        // Asyncify-based real sleep, not a spin). If the frame overran, fall back
+        // to a plain MessageChannel yield so input/timers still run and we never
+        // stall. The guest loop is never restructured — it just blocks in the
+        // pump until its next frame, so the core sleeps instead of burning.
+        uint32_t after = SDL_GetTicks();
+        if (now + 16 > after) emscripten_sleep(now + 16 - after);
+        else pop2_yield_to_browser();
         static const bool s_fps_trace =
             EM_ASM_INT({ return (typeof location !== 'undefined' &&
                                   location.hash.indexOf('fps') >= 0) ? 1 : 0; });

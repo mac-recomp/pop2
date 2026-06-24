@@ -1326,3 +1326,23 @@ Traced the real timer empirically (the bundled saves are the repro):
 `time_add_minutes` now adds `minutes` to A5-20430 directly, clamped to 75 (the game's own
 load ceiling). Verified end-to-end in the browser: load the bundled "Level 10" save
 (timer = 8 min), press +10 → timer = 18, and the game clock keeps advancing (no freeze).
+
+## 2026-06-24 — Web perf: -O2 + a 60 Hz frame-limiter (main-thread CPU 100% → ~10%)
+
+User heard the fans spin while playing in Firefox. Measured the running tab: it pinned a
+full CPU core (100% main-thread, ~510 MB). Two compounding fixes:
+
+1. **-O2.** The web build was compiled `-O0` (a since-disproven "-O2 miscompiles HP"
+   worry — the drain was the intended level-14 finale logic). Switched to `-O2`: the
+   recompiled 68k engine runs several times faster and the wasm shrinks 23 MB → 12 MB.
+   (Native still builds `-O0`.)
+2. **Frame-limiter.** `-O2` alone did NOT drop the CPU — the recompiled main loop
+   busy-waits for its VBL by re-pumping `video_pump()` in a tight loop, and the
+   per-frame yield resumed ASAP (MessageChannel), so the core stayed pinned (it just
+   spun faster). Now, after drawing a frame, `emscripten_sleep()` idles the thread
+   (Asyncify) until the next ~60 Hz frame instead of spinning. The guest loop is not
+   restructured — it simply blocks in the pump until its next frame, so the core sleeps.
+
+Result (headless Chrome, bundled "Level 10" save): main-thread CPU **100% → ~10%**, steady
+**60 fps** (not slowed), `+10` timer (8→18) and the no-freeze behavior both still pass.
+Should markedly cut fan noise / battery draw. Verified via ~/pop2-webtest/cpu_run.mjs.
