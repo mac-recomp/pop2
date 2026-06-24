@@ -1101,3 +1101,14 @@ to past its midpoint. The remaining stop is a deep cross-room shaft where a free
 fall across a seam is fatal even at safe depth; that is a navigator-precision /
 controlled-climb-down limit (the tables prove the level fully reachable), not a
 missing platform.
+
+## 2026-06-24 — Auto-navigator: grab-mantle climbs
+
+Some ledge climbs are a grab-and-mantle, not a free step up. A bare held Up made
+the kid jitter at the wall (e.g. L5 room23: climb from col0 row2 up to the col1
+ledge). The navigator now climbs in two phases like a real player: hold Up+Shift to
+grab the ledge until the kid is hanging (seq 87-99), then pulse Up to fire the
+edge-triggered pull-up. Where there is no headroom above the target (a solid block
+caps the ledge) the mantle is physically impossible regardless of input -- those
+spots are level geometry that historically needed a jump, which the fill/clear
+assist is meant to remove, not a navigator bug.

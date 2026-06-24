@@ -669,13 +669,36 @@ void present() {
                         // press Down: when there is floor directly below the engine
                         // reads Down as climb-down-in-place, which does not cross the
                         // room seam the solver's drop goes through.
+                        // A climb is also a clean vertical move: press only Up so
+                        // the kid mantles the ledge in his current facing (set by
+                        // the preceding walk). Holding the horizontal makes him step
+                        // into the wall below the ledge and never start the climb
+                        // (the kid jitters in place). Settle first (like a drop) so
+                        // he is stationary and faced before the climb/drop.
                         static size_t s_settle_for = SIZE_MAX;
                         static int s_settle_until = 0;
-                        if (w.dn && s_settle_for != i) {
+                        if ((w.dn || w.up) && s_settle_for != i) {
                             s_settle_for = i; s_settle_until = s_frame + 22;
                         }
-                        if (!(w.dn && s_frame < s_settle_until)) {
-                            if (w.up) s_keymap[0x7e>>3] |= uint8_t(1u<<(0x7e&7));
+                        if ((w.dn || w.up) && s_frame < s_settle_until) {
+                            // settle: hold nothing
+                        } else if (w.up) {
+                            // Mantle is two phases: grab the ledge (Shift) until the
+                            // kid is hanging (seq ~87-99), then pull up. The pull-up
+                            // is edge-triggered on Up, but Up was already held to
+                            // start the grab, so it needs a FRESH edge -- pulse Up
+                            // while hanging (and drop Shift) so a rising edge fires
+                            // the climb-up. A bare held Up only climbs a free step;
+                            // a ledge under a wall/block needs the grab + pulse (per
+                            // the L5 room23 climb).
+                            bool hanging = seq >= 87 && seq <= 99;
+                            if (!hanging) {
+                                s_keymap[0x7e>>3] |= uint8_t(1u<<(0x7e&7)); // Up
+                                s_keymap[0x38>>3] |= uint8_t(1u<<(0x38&7)); // Shift
+                            } else if ((s_frame % 12) < 6) {
+                                s_keymap[0x7e>>3] |= uint8_t(1u<<(0x7e&7)); // pulse Up
+                            }
+                        } else {
                             if (w.lf) s_keymap[0x7b>>3] |= uint8_t(1u<<(0x7b&7));
                             if (w.rt) s_keymap[0x7c>>3] |= uint8_t(1u<<(0x7c&7));
                         }
