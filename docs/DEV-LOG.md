@@ -1194,3 +1194,15 @@ With these the kid descends room1 -> ... -> room18 -> room20's open pit (a diago
 staircase) -> room21 -- the entire cavern descent that used to kill him at the
 first drop. Remaining stick: a diagonal mantle in room21 the runner overshoots, and
 the rooms beyond (the per-room long tail).
+
+## 2026-06-24 — Caverns level: room21 climb routing (partial)
+
+After the room20 open-pit fix the kid reaches room21, whose only exit is up on row1
+behind a wall-capped row of ledges. Two navigator corrections: (1) a climb target
+must be reached EXACTLY -- the approximate (one-tile) arrival was counting the kid
+running PAST col5 on row2 as having climbed to col5 row1 (a false advance); (2) a
+diagonal climb is launched from the column one tile to the other side, so the
+navigator now positions the kid on that launch column before pressing Up. Remaining:
+the kid still overshoots the launch column at a dead run and oscillates reversing
+out of it -- a precise-positioning limit of the open-loop follower, not a missing
+platform (the cavern descent down to room21 is solid).

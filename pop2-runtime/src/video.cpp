@@ -641,7 +641,12 @@ void present() {
                         if (s_nav[j].room==kr && s_nav[j].col==kc && s_nav[j].row==ky) {
                             hit = j; break;
                         }
-                    if (hit == SIZE_MAX) {
+                    if (hit == SIZE_MAX && !s_nav[i].up) {
+                        // Approximate arrival for the current target only, and NOT
+                        // for a climb: a climb's target is a row up, so accepting
+                        // "one tile off" would count the kid running PAST on the row
+                        // below as having climbed (the room21 false-advance). A climb
+                        // must be reached exactly (he really pulled up).
                         const Wp& w = s_nav[i];
                         int dc = w.col - kc, dr = w.row - ky;
                         if (w.room == kr && dc*dc + dr*dr <= 1) hit = i;
@@ -692,11 +697,23 @@ void present() {
                         } else if ((w.dn || w.up) && s_frame < s_settle_until) {
                             // settle: hold nothing
                         } else if (w.up) {
-                            s_keymap[0x7e>>3] |= uint8_t(1u<<(0x7e&7));      // Up
-                            if (w.lf) s_keymap[0x7b>>3] |= uint8_t(1u<<(0x7b&7));
-                            if (w.rt) s_keymap[0x7c>>3] |= uint8_t(1u<<(0x7c&7));
-                            if (s_frame - s_climb_t0 > 30)                   // stalled
-                                s_keymap[0x38>>3] |= uint8_t(1u<<(0x38&7));  // Shift grab
+                            // A diagonal climb-up to (w.col) is launched from the
+                            // column one tile to the OTHER side (climb up-left ->
+                            // launch from w.col+1). Position the kid on that launch
+                            // column first -- walking back if a run overshot it --
+                            // then press Up to mantle. Otherwise the runner sails
+                            // past the launch column and tries to climb where the
+                            // ledge is wall-capped (the room21 stick).
+                            int src = w.col + (w.lf ? 1 : w.rt ? -1 : 0);
+                            if (kc > src) {
+                                s_keymap[0x7b>>3] |= uint8_t(1u<<(0x7b&7));  // Left
+                            } else if (kc < src) {
+                                s_keymap[0x7c>>3] |= uint8_t(1u<<(0x7c&7));  // Right
+                            } else {
+                                s_keymap[0x7e>>3] |= uint8_t(1u<<(0x7e&7));  // Up
+                                if (s_frame - s_climb_t0 > 30)               // stalled
+                                    s_keymap[0x38>>3] |= uint8_t(1u<<(0x38&7)); // grab
+                            }
                         } else {
                             if (w.lf) s_keymap[0x7b>>3] |= uint8_t(1u<<(0x7b&7));
                             if (w.rt) s_keymap[0x7c>>3] |= uint8_t(1u<<(0x7c&7));
