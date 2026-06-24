@@ -1130,3 +1130,33 @@ walkable set, so the solver read it as a gap and pathed a drop where the kid in 
 walks straight across -- on L8 that sent the auto-nav the wrong way out of the start
 room (room9 -> room21 instead of descending). Added 22 to WALKABLE; L8 now traverses
 from the start through several rooms instead of diverging on the first move.
+
+## 2026-06-24 — Auto-nav survey across all 14 levels (state + honest limits)
+
+Ran the in-game auto-navigator from each level's real spawn with platforms +
+clear-the-way on. How far each follows its solver route before sticking/dying
+(waypoint reached / total):
+
+  L3  ~70/118  (deep into the caverns: descents, climbs, seams, cleared
+                spikes+blade, an opened gate; stops at room20's multi-shaft drop)
+  L4   10/85   L5   7/90   L7  died 5/88   L8  17/123
+  L10  19/77   L11  14/39   L12 32/76   L13  8/111
+  L6 (event-gated, 5-wp start cluster), L9/L14 diverge on the first move
+  L1/L2 are sparse intro levels (spawn room1).
+
+What this verifies: the assist mechanics all work in-game -- no-jump walks, the
+edge-hang descent, grab-mantle climbs, room-seam climb-downs, fatal-fall cushions
+(incl. the manual cross-seam staircase), and clear-the-way neutralising spikes,
+blades, debris holes and closed gates. The solver tables are now built on a correct
+tile model (solid walls, 2-tile bp blocks, walkable item tiles), so the no-jump
+reachability they encode is honest.
+
+What is NOT a full end-to-end auto-run: the open-loop follower diverges or stops at
+per-spot precision points -- a free fall down a deep cross-room shaft (fatal even
+at safe depth unless a hand-tuned staircase breaks it), a mantle with no headroom
+above the ledge (level geometry that historically wanted a jump), a 2-row climb, or
+a first-move that needs an exact drop. These are navigator-precision / level-
+structure issues, not missing platforms: the tables prove the cells reachable
+without jumps, and a human (or a tighter per-level input script) clears them. The
+remaining work is per-level input tuning + a few more hand cushions in
+tools/manual-fills.txt, level by level.
