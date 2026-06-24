@@ -414,6 +414,7 @@ body.has-saved-data .forget-data{display:block;}
           <label class="assist-row"><input type="checkbox" id="assist-hp" /><span>Start each level with 6 health (instead of 3)</span></label>
           <label class="assist-row"><input type="checkbox" id="assist-platforms" /><span>Platform builder — build ledges yourself: keys 1 / 2 / 3 = in front · below · above (or the on-screen buttons). Press the same one again to remove.</span></label>
           <label class="assist-row"><input type="checkbox" id="assist-no-enemies" /><span>Clear the way — no enemies spawn</span></label>
+          <label class="assist-row"><input type="checkbox" id="assist-lowcpu" /><span>Low-CPU mode — idles between frames so the fan stays quiet and the battery lasts (still 60 fps). Toggle off if you notice any stutter.</span></label>
           <button id="add-time" class="assist-action" type="button" title="Pushes the game's time limit 10 minutes later (does not affect game speed)">＋&nbsp; Add 10 minutes of game time</button>
           <div class="assist-speed">
             <label for="speed-slider"><span>Game speed</span><b id="speed-val">1×</b></label>
@@ -639,6 +640,11 @@ body.has-saved-data .forget-data{display:block;}
     });
     var noen = document.getElementById('assist-no-enemies');
     if (noen) noen.addEventListener('change', function () { if (Module._pop2_set_remove_enemies) Module._pop2_set_remove_enemies(noen.checked ? 1 : 0); });
+    // Low-CPU pacing: switch the frame loop between the smooth busy-loop (default,
+    // ~100% of a core) and the tick idle (~1/10th the CPU). Runtime-switchable so it
+    // can be A/B'd by eye in the same scene; defaults off so the build is unchanged.
+    var lowcpu = document.getElementById('assist-lowcpu');
+    if (lowcpu) lowcpu.addEventListener('change', function () { if (Module._pop2_set_pace) Module._pop2_set_pace(lowcpu.checked ? 3 : 0); });
 
     // ---- save manager: named slots through the game's real Save/Open path ----
     // Save sets the slot name + injects Cmd+S; Load sets it + injects Cmd+O; the

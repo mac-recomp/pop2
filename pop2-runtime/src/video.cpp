@@ -30,6 +30,7 @@ EM_ASYNC_JS(void, pop2_yield_to_frame, (), {
 });
 #endif
 
+#include <cmath>
 #include <cstdlib>
 #include <cstring>
 #include <deque>
@@ -90,6 +91,7 @@ int s_placed_level = -2;
 bool s_button = false;
 int16_t s_mouse_h = SCREEN_W / 2, s_mouse_v = SCREEN_H / 2;
 uint32_t s_last_present = 0;    // SDL_GetTicks of last frame
+uint32_t s_spin_n = 0;          // video_pump calls since the last present (web spin-detection pacing)
 std::deque<MacEvent> s_events;
 
 // SDL scancode -> Mac virtual key code (classic US layout)
@@ -875,6 +877,96 @@ uint8_t video_match_color(uint8_t r, uint8_t g, uint8_t b) {
     return uint8_t(best);
 }
 
+#ifdef __EMSCRIPTEN__
+// Present-interval instrumentation (gated by the #fps URL hash). Records the
+// real-time gap between presents so smoothness can be judged headless: a smooth
+// 60 fps shows a ~16.7 ms mean with small std-dev and ~zero long gaps, while the
+// 16-vs-16.67 ms beat shows periodic gaps > 25 ms (= 1.5x a frame, a dropped/
+// doubled frame — the judder signature). Emits a [fps] line each second (kept for
+// cpu_run.mjs) and a [jitter] summary each rolling window.
+static void record_present_jitter(uint32_t pumps) {
+    double t = emscripten_get_now();
+    // [fps] presents-per-second
+    static double s_fps_t0 = 0; static uint32_t s_fps_n = 0;
+    if (s_fps_t0 == 0) s_fps_t0 = t;
+    s_fps_n++;
+    if (t - s_fps_t0 >= 1000.0) {
+        std::fprintf(stderr, "[fps] %u present/s\n",
+                     (unsigned)(s_fps_n * 1000.0 / (t - s_fps_t0) + 0.5));
+        s_fps_t0 = t; s_fps_n = 0;
+    }
+    // [jitter] present-interval distribution over a rolling window. pmin/pmax are
+    // the pumps-since-present range: in busy mode pmin ~= the heaviest-logic frame
+    // (least VBL spin) ~= the logic-pump ceiling, so the spin threshold can be set
+    // safely above it. In spin mode pumps ~= the threshold.
+    static double s_prev = 0, s_sum = 0, s_sum2 = 0, s_min = 1e9, s_max = 0;
+    static uint32_t s_n = 0, s_gap25 = 0, s_gap33 = 0, s_pmin = 0xFFFFFFFFu, s_pmax = 0;
+    if (pumps < s_pmin) s_pmin = pumps;
+    if (pumps > s_pmax) s_pmax = pumps;
+    if (s_prev > 0) {
+        double dt = t - s_prev;
+        s_sum += dt; s_sum2 += dt * dt; s_n++;
+        if (dt < s_min) s_min = dt;
+        if (dt > s_max) s_max = dt;
+        if (dt > 25.0) s_gap25++;
+        if (dt > 33.0) s_gap33++;
+        if (s_n >= 240) {               // ~4 s window at 60 fps
+            double mean = s_sum / s_n;
+            double var = s_sum2 / s_n - mean * mean;
+            double sd = var > 0 ? std::sqrt(var) : 0.0;
+            std::fprintf(stderr, "[jitter] n=%u mean=%.2f sd=%.2f min=%.2f max=%.2f "
+                         "fps=%.1f gaps>25=%u gaps>33=%u pmin=%u pmax=%u\n", s_n, mean,
+                         sd, s_min, s_max, mean > 0 ? 1000.0 / mean : 0.0, s_gap25,
+                         s_gap33, s_pmin, s_pmax);
+            s_sum = s_sum2 = 0; s_n = 0; s_min = 1e9; s_max = 0; s_gap25 = s_gap33 = 0;
+            s_pmin = 0xFFFFFFFFu; s_pmax = 0;
+        }
+    }
+    s_prev = t;
+}
+
+// Web pacing mode, parsed once from the URL hash. Shared with the trap dispatcher
+// (traps.cpp), which drives the 'tick' mode. 0=busy 1=spin 2=oldraf 3=tick.
+enum { PACE_BUSY = 0, PACE_SPIN = 1, PACE_OLDRAF = 2, PACE_TICK = 3 };
+// tick threshold 32: low enough that even a short idle-wait (heavy/movement frames
+// leave little VBL slack) still clears it — so it stays smooth under load — yet well
+// above any run of consecutive poll traps that game logic produces (measured < 16).
+int g_web_pace = -1, g_web_spin_thresh = 256, g_web_tick_thresh = 32;
+void web_pace_init() {
+    if (g_web_pace >= 0) return;
+    g_web_pace = EM_ASM_INT({
+        if (typeof location === 'undefined') return 0;
+        if (location.hash.indexOf('pace=tick')   >= 0) return 3;
+        if (location.hash.indexOf('pace=spin')   >= 0) return 1;
+        if (location.hash.indexOf('pace=oldraf') >= 0) return 2;
+        return 0;
+    });
+    int s = EM_ASM_INT({ var m=(typeof location!=='undefined')&&location.hash.match(/spin=([0-9]+)/); return m?(parseInt(m[1])|0):0; });
+    if (s > 0) g_web_spin_thresh = s;
+    int k = EM_ASM_INT({ var m=(typeof location!=='undefined')&&location.hash.match(/tick=([0-9]+)/); return m?(parseInt(m[1])|0):0; });
+    if (k > 0) g_web_tick_thresh = k;
+}
+
+static bool s_fps_trace_q() {
+    static const int q = EM_ASM_INT({ return (typeof location !== 'undefined' &&
+                                              location.hash.indexOf('fps') >= 0) ? 1 : 0; });
+    return q != 0;
+}
+// Present the finished guest frame, record jitter, reset the pump counter.
+static void video_present_record() {
+    present();
+    if (s_fps_trace_q()) record_present_jitter(s_spin_n);
+    s_spin_n = 0;
+    s_last_present = SDL_GetTicks();   // also drives the tick-mode safety net below
+}
+// Present + idle until the next animation frame (rAF): vsync-aligned, low CPU.
+// Used by the spin/oldraf paths here and the tick path in the trap dispatcher.
+void video_present_and_idle() {
+    video_present_record();
+    pop2_yield_to_frame();
+}
+#endif
+
 void video_pump() {
     if (g_interrupt_depth > 0) return;   // interrupt-time guest code must
                                          // not block on vsync or recurse
@@ -1521,35 +1613,48 @@ void video_pump() {
     }
 
     uint32_t now = SDL_GetTicks();
+#ifdef __EMSCRIPTEN__
+    // --- Web frame pacing (see docs/render-perf-night-plan.md) ----------------
+    // The recompiled 68k loop busy-waits for its VBL by re-pumping video_pump in a
+    // tight loop until ~1/60 s of real time passes. That spin — not the render work —
+    // is what pins a CPU core. The pacing mode is selectable at runtime via the URL
+    // hash so the build can be A/B'd by eye without rebuilding; the default is the
+    // known-smooth busy-loop, so the deployed build is unchanged unless asked.
+    //   busy   (default) 16 ms SDL_GetTicks gate + macrotask yield (resume ASAP):
+    //          smooth, but spins the core between presents.
+    //   tick   (#pace=tick) idle on the guest's VBL wait, detected in the trap
+    //          dispatcher as a run of consecutive poll traps (see traps.cpp). Most
+    //          robust + lowest CPU; the present is driven there, so do nothing here.
+    //   spin   (#pace=spin&spin=N) present once the pump count since the last present
+    //          crosses N (clearly the VBL busy-wait, not logic), then idle to the next
+    //          animation frame. Works only for N above logic's pumps/frame and below a
+    //          frame's natural pump count — a narrow window; the tick mode supersedes it.
+    //   oldraf (#pace=oldraf) 16 ms gate + rAF yield (the reverted approach): kept to
+    //          reproduce its 16-vs-16.67 ms beat as a known-bad jitter baseline.
+    web_pace_init();
+    s_spin_n++;                              // pumps since the last present (all modes)
+    if (g_web_pace == PACE_TICK) {
+        // The trap dispatcher drives present + idle on the guest's poll-trap VBL wait.
+        // Safety net: if that detection ever misses (a non-poll trap in the wait), a
+        // present is forced after 100 ms so the display can't hard-freeze.
+        if (now - s_last_present > 100) video_present_and_idle();
+    } else if (g_web_pace == PACE_SPIN) {
+        if (s_spin_n >= (uint32_t)g_web_spin_thresh) video_present_and_idle();
+    } else if (now - s_last_present >= 16) {
+        s_last_present = now;
+        if (g_web_pace == PACE_OLDRAF) {
+            video_present_and_idle();        // 16 ms gate, then rAF idle
+        } else {                             // busy: present, then resume ASAP
+            video_present_record();
+            pop2_yield_to_browser();
+        }
+    }
+#else
     if (now - s_last_present >= 16) {
         s_last_present = now;
         present();
-#ifdef __EMSCRIPTEN__
-        // Resume ASAP and let the browser composite the canvas at its own vsync — the
-        // smooth path (this is the original behaviour). Idling the loop here to save CPU
-        // kept fighting the compositor: a setTimeout sleep made it churn (Firefox main
-        // 14%->125%), and a requestAnimationFrame yield beat against the 16 ms present
-        // gate (present interval drifts vs the 16.67 ms vsync -> periodic judder). So we
-        // keep the simple yield: smooth, but the engine's VBL busy-wait still pins a
-        // core. Making it both smooth AND low-CPU is a pacing problem to solve with care
-        // (present exactly once per vsync, no competing gate) — see
-        // docs/render-perf-night-plan.md. pop2_yield_to_frame stays defined for that work.
-        pop2_yield_to_browser();
-        static const bool s_fps_trace =
-            EM_ASM_INT({ return (typeof location !== 'undefined' &&
-                                  location.hash.indexOf('fps') >= 0) ? 1 : 0; });
-        if (s_fps_trace) {
-            static uint32_t s_fps_t0 = 0, s_fps_n = 0;
-            s_fps_n++;
-            uint32_t fnow = SDL_GetTicks();
-            if (fnow - s_fps_t0 >= 1000) {
-                std::fprintf(stderr, "[fps] %u present/s\n",
-                             s_fps_n * 1000u / (fnow - s_fps_t0));
-                s_fps_t0 = fnow; s_fps_n = 0;
-            }
-        }
-#endif
     }
+#endif
 }
 
 void video_get_keys(uint8_t out[16]) {
@@ -1693,6 +1798,16 @@ extern "C" EMSCRIPTEN_KEEPALIVE void pop2_add_time(int minutes) {
 // Assist: set the game-speed multiplier (1.0 = normal). Wired to the speed slider.
 extern "C" EMSCRIPTEN_KEEPALIVE void pop2_set_speed(double mult) {
     time_set_speed(mult);
+}
+// Perf: select the web frame-pacing mode at runtime — 0 = busy (default smooth
+// busy-loop, ~100% of a core) or 3 = tick (idle the VBL wait to the next vsync,
+// ~1/10th the CPU). Wired to the "Low-CPU mode" toggle; no-op on native.
+extern "C" EMSCRIPTEN_KEEPALIVE void pop2_set_pace(int mode) {
+#ifdef __EMSCRIPTEN__
+    if (mode == 0 || mode == 3) g_web_pace = mode;
+#else
+    (void)mode;
+#endif
 }
 
 // Inject a Cmd+<letter> menu command straight into the game's event queue,

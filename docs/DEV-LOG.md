@@ -1388,3 +1388,37 @@ render savings), so dirty-rect render surgery would NOT lower CPU. The real leve
 idle pacing (present exactly once per vsync, no competing gate), whose smoothness must be
 verified (headless jitter measurement + the user's eyes). Rewrote docs/render-perf-night-plan.md
 around that. pop2_yield_to_frame is kept defined for that work.
+
+## 2026-06-25 (night) — Smooth + low-CPU web pacing: idle the VBL wait ("tick" mode), branch `pacing`
+
+The 100% CPU was the recompiled engine's VBL busy-wait — a tight `while(TickCount()<n){}`
+loop, each iteration pumping video — NOT the render work, so the lever is to idle that wait.
+Earlier idle attempts regressed smoothness because they kept the 16 ms SDL_GetTicks present
+gate, whose interval drifts against the 16.67 ms vsync → a periodic dropped frame (the user's
+"рывки"). New approach presents once per frame with NO competing gate:
+
+The trap dispatcher (do_trap) detects the VBL wait as a run of **consecutive poll traps**
+(TickCount / WaitNextEvent / GetKeys / Button / GetMouse / SystemTask). Game logic interleaves
+drawing and arithmetic traps, so its consecutive run stays short (measured < 16); only the idle
+wait accumulates. After 32 consecutive poll traps the finished frame is presented and the thread
+idles to the next animation frame (rAF). A 100 ms safety net forces a present if detection ever
+misses, so it can't hard-freeze. Lower threshold = more robust under load (a heavy frame leaves a
+short wait, and a low bar still clears it; tick=128 misses it and judders). A pump-count "spin"
+mode was tried first but only works in a fragile 512–1024 window — superseded by tick.
+
+Headless (real-compositor, Level 10; present-interval jitter is the judder signature):
+- busy (current default):  CPU ~100%   ~60 fps   sd ~1 ms
+- tick=32 (new):           CPU ~8–11%  ~60 fps   sd ~1 ms, 0 long gaps   (when the host is idle)
+The CPU drop (~10x) is reliable across every run. The fps/jitter of tick is rAF-paced, so the
+HEADLESS number is sensitive to host CPU contention (the build agent itself perturbed it: some
+runs showed 30–40 fps while a competing process ran, others a flat 60). Real hardware locks rAF
+to vsync, so that variance is a test-env artifact — but it does mean headless can't *prove*
+smoothness; the user confirms by eye. Engine stays correct under tick: tickRate 60/s, +10 lands
+on the HUD timer, save/load fine (toggle_test + addtime/time/plat all green).
+
+Selectable at runtime so it can be A/B'd by eye: **default stays busy** (deployed build
+unchanged); a new "Low-CPU mode" Assists toggle (`pop2_set_pace`) and `#pace=tick` switch to
+tick; `#pace=spin&spin=N` / `#pace=oldraf` kept for debugging. Headless jitter instrumentation
+added behind #fps ([jitter] lines). On branch `pacing` only — master/web keep the smooth
+busy-loop until the user confirms tick is smooth on real hardware. Tooling:
+~/pop2-webtest/jitter_run.mjs (CPU + jitter + fps + alive; STRESS=1 drives movement), toggle_test.mjs.

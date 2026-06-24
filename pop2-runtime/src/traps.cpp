@@ -2988,12 +2988,58 @@ static void tb_trap(Cpu& cpu, uint16_t op) {
           trap_display_name(op), op, cpu.pc, cpu.a[7]);
 }
 
+#ifdef __EMSCRIPTEN__
+// Web 'tick' pacing (see video.cpp / docs/render-perf-night-plan.md). The guest's
+// per-frame VBL wait is a tight loop of "poll" traps (TickCount / WaitNextEvent /
+// GetKeys / ...), each of which pumps video. Game logic interleaves drawing and
+// arithmetic traps, so its run of consecutive poll traps stays short; only the idle
+// wait accumulates a long run. Counting consecutive poll traps (reset on any other
+// trap) isolates the wait robustly — no fragile pump-count threshold — so we can
+// present the finished frame and idle to the next vsync right there.
+extern int g_web_pace, g_web_tick_thresh;
+extern void web_pace_init();
+extern void video_present_and_idle();
+static inline bool is_poll_trap(uint16_t op) {
+    switch (op) {
+    case 0xA860:  // WaitNextEvent
+    case 0xA970:  // GetNextEvent
+    case 0xA971:  // EventAvail
+    case 0xA972:  // GetMouse
+    case 0xA973:  // StillDown
+    case 0xA974:  // Button
+    case 0xA975:  // TickCount
+    case 0xA976:  // GetKeys
+    case 0xA977:  // WaitMouseUp
+    case 0xA9B4:  // SystemTask
+        return true;
+    default:
+        return false;
+    }
+}
+static uint32_t s_consec_poll = 0;
+#endif
+
 void do_trap(Cpu& cpu, uint16_t opcode) {
     uint16_t op = opcode;
     if (op >= 0xAC00) op &= ~0x0400;   // strip auto-pop bit
     if (s_trace)
         std::fprintf(stderr, "[trap] %s (0x%04X) pc=%06X\n",
                      trap_display_name(op), op, cpu.pc);
+#ifdef __EMSCRIPTEN__
+    if (g_web_pace < 0) web_pace_init();
+    if (g_web_pace == 3 /*PACE_TICK*/) {
+        // Interrupt-time guest code must not block on vsync (it can recurse and the
+        // present is for the foreground frame), so only pace at the top level.
+        if (g_interrupt_depth == 0 && is_poll_trap(op)) {
+            if (++s_consec_poll >= (uint32_t)g_web_tick_thresh) {
+                s_consec_poll = 0;
+                video_present_and_idle();
+            }
+        } else {
+            s_consec_poll = 0;
+        }
+    }
+#endif
     if (op >= 0xA800) {
         tb_trap(cpu, op);
     } else {
