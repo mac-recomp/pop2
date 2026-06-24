@@ -1043,3 +1043,25 @@ Findings:
 
 Net: climbs/walks are drivable and testable (so the cushion + reachability work is
 empirically grounded, not assumed). Tooling committed for future traversal tests.
+
+## 2026-06-24 — Platform assist: solver tile-model fixes (solid walls, bp blocks)
+
+In-game traversal of L3 with the auto-navigator exposed two model bugs that made
+the solver invent impossible routes and mis-place reachability:
+
+* **Solid walls weren't solid.** `drop_land` fell straight *through* a WAL (tile
+  20): stepping sideways into a wall column "landed" the kid on whatever floor sat
+  below the wall (e.g. L3 room 14 col9 is a wall over a pillar, and the path asked
+  the kid to walk into the wall and drop to the pillar). A wall blocks both the
+  sideways step and the fall, so it now stops `drop_land` (no landing) and ends a
+  jump-over.
+* **`bpT` is not a standing surface.** Tiles 8/9 ("bpB"/"bpT") are the bottom and
+  top halves of a 2-tile-tall block; the prince stands at the bpB level, never on
+  bpT (confirmed in-game: walking off a floor onto a bp column climbs *down* to the
+  bpB row). Treating bpT as walkable created a phantom upper level the kid could
+  never occupy, so the path zig-zagged onto cells he'd immediately fall off of.
+  Dropped 9 from WALKABLE; kept 8.
+
+Reachability is now honest (it no longer counts cells only reachable by phasing
+through a wall), so the tables shrank and a few levels show more genuinely
+jump-required cells. Tables + the baked `.inc` regenerated (354 cells).

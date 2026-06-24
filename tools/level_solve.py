@@ -93,12 +93,19 @@ class Grid:
 
     def drop_land(self, gr, gc, extra, limit):
         """First standable cell at column gc at row >= gr, within `limit` rows.
-        Returns (land_row, dist) or (None, None)."""
+        Returns (land_row, dist) or (None, None). A solid wall (WAL) blocks the
+        column: you cannot fall through it (and cannot stand on top of it), so a
+        wall reached before any floor means there is no valid landing -- without
+        this the model would "fall through" a wall into the cell below and invent
+        impossible drops (e.g. step sideways into a wall column and land beneath
+        it)."""
         r = gr
         d = 0
         while d <= limit:
             if self.stand(r, gc, extra):
                 return r, d
+            if self.tiles.get((r, gc)) == 20:    # WAL: solid, blocks the fall
+                return None, None
             if not self.known(r, gc) and r > gr:
                 return None, None   # fell off the known map
             r += 1
@@ -129,8 +136,10 @@ def neighbors(g, cell, extra, allow_jump, fall_limit):
         for dc in (-1, 1):
             for k in range(2, JUMP + 1):
                 tc = gc + dc * k
-                # the cells jumped over must be non-floor (an actual gap)
-                if any(g.stand(gr, gc + dc * j, extra) for j in range(1, k)):
+                # the cells jumped over must be a clear gap: a floor in the way
+                # ends the jump (you land on it), and a wall blocks it outright.
+                if any(g.stand(gr, gc + dc * j, extra) or
+                       g.tiles.get((gr, gc + dc * j)) == 20 for j in range(1, k)):
                     break
                 for dr in (0, -1, 1):
                     if g.stand(gr + dr, tc, extra):

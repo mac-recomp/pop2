@@ -26,7 +26,11 @@ TILE = {
 }
 # 5/6 are buttons/pressure-plates (classic PoP "raise"/"drop" buttons) -- the
 # prince stands on them, so they are walkable surfaces for traversal/gap analysis.
-WALKABLE = {1, 3, 4, 5, 6, 8, 9, 10, 11, 14, 16, 17, 19, 23, 24, 33, 34, 49}
+# bpT/bpB (9/8) are the top and bottom halves of a 2-tile-tall block: the prince
+# stands at the bpB (lower) level, NOT on bpT -- confirmed in-game (walking off a
+# floor onto a bp column climbs DOWN to the bpB row). So bpB(8) is walkable and
+# bpT(9) is not (it is the block's upper body, a non-standing surface).
+WALKABLE = {1, 3, 4, 5, 6, 8, 10, 11, 14, 16, 17, 19, 23, 24, 33, 34, 49}
 
 
 def w16(buf, off, signed=False):
