@@ -4,9 +4,8 @@
 # "room:idx", idx = row*10 + col. Baked into the engine via
 # tools/gen_platform_tables.py (run it after editing). "# L N:" notes how the
 # table was built and what to re-check in a playtest.
-LEVEL 1: 3:23,5:22,5:23,17:23,17:24,17:25,19:16,20:17,23:2,23:3,23:4,25:14,29:5
-# L1 [solver] reachable 303/303 no-jump (of 303 world) | 13 cells
-#   removed (would block a drop): 23:5
+LEVEL 1: 1:13,1:14,1:15,3:13,3:14,6:4
+# L1 [solver] reachable 90/90 no-jump (of 90 world) | 6 cells
 # L2 [geometry] model stuck (only 45/155 reachable) -> geometry fill | 0 cells
 LEVEL 3: 3:23,5:22,5:23,17:23,17:24,17:25,18:27,19:16,20:6,20:15,20:17,23:2,23:3,23:4,25:14,29:5
 # L3 [solver] reachable 303/303 no-jump (of 303 world) +3 manual | 16 cells

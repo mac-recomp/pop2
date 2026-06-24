@@ -1239,3 +1239,25 @@ Shift explicitly. Result: **the auto-navigator now reaches the END of the cavern
 level -- all 86 waypoints, start to the far reachable cell, with no horizontal jumps
 and no fatal falls.** The full descent (diagonal-staircase open pits), the room21
 grab-mantle, and the walk-out all chain cleanly.
+
+## 2026-06-24 — CRITICAL FIX: Level 1 table was built from the WRONG level
+
+User feedback exposed a bad assumption: the real Level 1 (New Game) is the env5
+rooftops level, but the bundled "Level 1" save is a corrupted copy that loads the
+env3 CAVERNS content (same as "Level 3"). I'd been treating the caverns as "Level 1"
+and, worse, regenerated the LEVEL 1 platform table from that env3 caverns dump -- so
+the baked L1 table filled rooms 17/19/20/23/25/29 that DON'T EXIST in the real
+15-room Level 1, replacing the good walk-across bridges with junk (and a useless
+cushion). The third pit went unbridged.
+
+Fix: dump the REAL Level 1 via New Game (Cmd+N -> env5) and regenerate. The solver,
+fed the correct dump, computes exactly the dense bridges the level needs:
+`LEVEL 1: 1:13,1:14,1:15,3:13,3:14,6:4` -- fill room1 row1 col3-5 and room3 row1
+col3-4 at the WALKING row (walk straight across), room6 col4 -- 90/90 reachable with
+no horizontal jumps, 0 unreached, 0 cushions. In-game (New Game + assist) the kid now
+walks across the bridged pits from spawn through rooms 4->2->3->1->10.
+
+Lesson: the per-level dump MUST come from the real level (New Game for L1), not a
+mislabeled save. The other dumps (L2-14) were checked and match their levels (env
+1/3/3/3/4/4/4/4/2/2/2/2/6). User's principle confirmed: a pit on the path gets a
+BRIDGE at the walk row (walk across), not a cushion below (fall + climb back).
