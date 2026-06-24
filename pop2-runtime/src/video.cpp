@@ -658,29 +658,26 @@ void present() {
                     } else {
                         clrkeys();
                         const Wp& w = s_nav[i];
-                        // A drop waypoint = step one tile into the adjacent gap and
-                        // fall straight down that column (the solver's drop model).
-                        // The danger is momentum: if the kid runs off the edge with
-                        // a horizontal key already held, he sails past a narrow
-                        // landing ledge into the pit beyond and dies. So before a
-                        // drop, settle for a beat (hold nothing) to bleed off the
-                        // run, then step into the gap at walking speed -- the fall is
-                        // then ~vertical and lands in the intended column. We never
-                        // press Down: when there is floor directly below the engine
-                        // reads Down as climb-down-in-place, which does not cross the
-                        // room seam the solver's drop goes through.
-                        // Descents settle first (bleed off the run) then step into
-                        // the gap. Climbs hold Up + the horizontal: a free climb or a
-                        // 2-row room-seam climb-grab goes on Up alone, and the
-                        // horizontal sets facing for a diagonal grab. If a climb
-                        // stalls (the kid hasn't gained a row for a beat) he is at a
-                        // ledge that needs grabbing -- add Shift to mantle. (Where
-                        // there is no headroom above the ledge the mantle is
-                        // impossible regardless; that is level geometry, not input.)
+                        // Descent: first move horizontally to reach the drop COLUMN
+                        // (settling a beat so the run doesn't overshoot a narrow
+                        // ledge), then once on that column press Down to climb
+                        // straight down it. A cushioned shaft is a staircase the kid
+                        // climbs down a row at a time; pressing the waypoint's
+                        // horizontal again once already on the column walks him OFF
+                        // the staircase into an adjacent uncushioned shaft (that was
+                        // the room18->room20 death: he landed on the col7 rung, then
+                        // the "DL" stepped him left into the col6 pit and he fell
+                        // cross-seam to his death). Climb: Up + the horizontal (free
+                        // climb / 2-row seam grab); add Shift to mantle if it stalls
+                        // (no headroom above a ledge = impossible regardless = level
+                        // geometry, not input).
                         static size_t s_settle_for = SIZE_MAX;
                         static int s_settle_until = 0;
-                        if (w.dn && s_settle_for != i) {
-                            s_settle_for = i; s_settle_until = s_frame + 22;
+                        if ((w.dn || w.up) && s_settle_for != i) {
+                            // settle before a drop OR a climb: a climb taken at a
+                            // dead run overshoots the climb column and ends up where
+                            // the mantle is wall-blocked, so stop first then climb.
+                            s_settle_for = i; s_settle_until = s_frame + 18;
                         }
                         static size_t s_climb_for = SIZE_MAX;
                         static int s_climb_t0 = 0, s_climb_row = 99;
@@ -690,7 +687,9 @@ void present() {
                         if (w.up && ky < s_climb_row) {     // gained a row: progress
                             s_climb_row = ky; s_climb_t0 = s_frame;
                         }
-                        if (w.dn && s_frame < s_settle_until) {
+                        if (w.dn && kc == w.col) {
+                            s_keymap[0x7d>>3] |= uint8_t(1u<<(0x7d&7));      // Down
+                        } else if ((w.dn || w.up) && s_frame < s_settle_until) {
                             // settle: hold nothing
                         } else if (w.up) {
                             s_keymap[0x7e>>3] |= uint8_t(1u<<(0x7e&7));      // Up

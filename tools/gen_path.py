@@ -63,7 +63,7 @@ def main():
     order = [start]
     while q:
         cell = q.popleft()
-        for nb in S.neighbors(g, cell, extra, False, S.SAFE):
+        for nb in S.neighbors(g, cell, extra, False, S.SAFE, cap=True):
             if nb not in parent and nb in g.tiles:
                 parent[nb] = cell
                 q.append(nb)

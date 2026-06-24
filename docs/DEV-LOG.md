@@ -1169,3 +1169,28 @@ Shift to grab-mantle only after the climb stalls (no row gained for ~30 frames).
 The unconditional Shift-grab had risked the free 2-row climbs that already worked on
 Up alone. Net: L13 reaches further (waypoint 8 -> 11) and the grab still fires where
 a capped ledge needs it.
+
+## 2026-06-24 — Finishing the caverns level: room20 open-pit descent solved
+
+(The "Level 1" save loads the env=3 caverns level -- same content as "Level 3" --
+so the first level IS this caverns level.) Pushed the auto-nav from dying at the
+start to traversing the whole cavern descent. Key fixes:
+
+* **Aligned descent.** In the navigator, once the kid is on the drop COLUMN press
+  Down (climb straight down a cushioned shaft a row at a time); only move
+  horizontally to reach the column. The old "DL" stepped him off a staircase rung
+  into the adjacent pit where he fell cross-seam to his death.
+* **Diagonal staircase cushions.** The solver's BFS can only model a sideways-step
+  drop (never a straight-down climb), so a vertical staircase is unused -- it takes
+  a fatal 3-tile diagonal drop instead. The fix is a DIAGONAL staircase (each rung
+  one row down AND one column toward the exit) so every drop is a survivable 1-row
+  step. Added L3 room18->room20 (18:27,20:6,20:15) to tools/manual-fills.txt.
+* **Headroom-aware routing.** A climb-up onto a wall-capped ledge is an impossible
+  mantle (grab+hang, no room to pull up). gen_path now avoids those (picks a
+  clear-headroom climb); the table builder stays optimistic so cushions are unaffected.
+* **Settle before a climb** too (not just a drop) so a climb isn't taken at a run.
+
+With these the kid descends room1 -> ... -> room18 -> room20's open pit (a diagonal
+staircase) -> room21 -- the entire cavern descent that used to kill him at the
+first drop. Remaining stick: a diagonal mantle in room21 the runner overshoots, and
+the rooms beyond (the per-room long tail).

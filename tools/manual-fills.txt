@@ -8,6 +8,11 @@
 # specific staircase rungs that turn a deadly shaft into a row-at-a-time climb-down
 # are listed here instead.
 
-# L3 room18 -> room20 shaft (col7): without these the kid free-falls across the
-# seam and dies; with them he climbs down a row at a time. Validated in-game.
-3: 18:27,20:7
+# L3 room18 -> room20 open-pit descent. room20's rows 0-1 are an open pit (the kid
+# must reach row2 then walk left to the room21 exit). A free fall across the seam
+# is fatal even at "safe" depth, and the solver's BFS can only model a sideways-step
+# drop (never a straight-down climb), so a vertical staircase is unused -- it takes
+# a 3-tile diagonal drop instead and dies. Cushion a DIAGONAL staircase (each rung
+# one row down AND one column toward the exit) so every drop is a survivable 1-row
+# step: room18 r2 c7 -> room20 r0 c6 -> room20 r1 c5 -> room20 r2 c4 (row2 floor).
+3: 18:27,20:6,20:15

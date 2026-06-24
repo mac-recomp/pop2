@@ -113,7 +113,20 @@ class Grid:
         return None, None
 
 
-def neighbors(g, cell, extra, allow_jump, fall_limit):
+def _capped(g, gr, gc):
+    """A solid wall directly above a ledge leaves no headroom to mantle onto it --
+    the prince grabs and hangs but cannot pull up. Such a climb-up is impossible
+    in-game regardless of input (level geometry that wanted a jump), so the model
+    must not offer it as a climb. (Only WALL caps; the ledge is still reachable by
+    walking onto it from the side -- this removes the climb-up edge, not the cell.)"""
+    return g.tiles.get((gr, gc)) == 20
+
+
+def neighbors(g, cell, extra, allow_jump, fall_limit, cap=False):
+    # cap=True drops climb-ups onto a wall-capped ledge (no headroom to mantle).
+    # The table builder leaves cap=False (optimistic reachability + cushions);
+    # gen_path sets cap=True so the ROUTE the navigator follows avoids a mantle
+    # the kid physically cannot complete, picking a clear-headroom climb instead.
     gr, gc = cell
     out = []
     for dc in (-1, 1):
@@ -124,13 +137,14 @@ def neighbors(g, cell, extra, allow_jump, fall_limit):
             land, dist = g.drop_land(gr, nc, extra, fall_limit)
             if land is not None and dist >= 1:
                 out.append((land, nc))                # drop / fall
-        if g.stand(gr - 1, nc, extra):
+        if g.stand(gr - 1, nc, extra) and not (cap and _capped(g, gr - 2, nc)):
             out.append((gr - 1, nc))                  # climb up one (adjacent)
     # climb-grab a ledge two rows up (a room-seam climb: floor, a row of head-
     # room, floor above) when the way up is clear. Climbing/grabbing is not a
     # horizontal jump, so it is allowed in the no-jump model.
     for dc in (-1, 0, 1):
-        if g.stand(gr - 2, gc + dc, extra) and not g.stand(gr - 1, gc + dc, extra):
+        if (g.stand(gr - 2, gc + dc, extra) and not g.stand(gr - 1, gc + dc, extra)
+                and not (cap and _capped(g, gr - 3, gc + dc))):
             out.append((gr - 2, gc + dc))
     if allow_jump:
         for dc in (-1, 1):
