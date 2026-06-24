@@ -29,6 +29,15 @@ EM_ASYNC_JS(void, pop2_yield_to_browser, (), {
 #include <string>
 #include <vector>
 
+// Manual platform assist (defined with C linkage below); declared at global scope
+// so the keydown hotkeys can call it (an extern "C" decl in the anonymous namespace
+// would get internal linkage and not resolve to the definition). It is defined for
+// native too (the hotkeys call it), so give EMSCRIPTEN_KEEPALIVE a no-op fallback.
+#ifndef EMSCRIPTEN_KEEPALIVE
+#define EMSCRIPTEN_KEEPALIVE
+#endif
+extern "C" void pop2_place_platform(int which);
+
 namespace pop2 {
 
 namespace {
@@ -60,8 +69,15 @@ bool s_invincible = false;      // web assist: pin current HP = max
 #endif
 // Platform assist (native + web). Settable from the web menu (pop2_set_platforms
 // / pop2_set_remove_enemies) or, for iteration, from env (see video_pump).
-bool s_platform_assist = false;   // build the pre-baked per-level platforms
+bool s_platform_assist = false;   // manual platform-placement mode (player ledges)
 bool s_remove_enemies = false;    // suppress enemy spawns
+// Manual platform assist: floor tiles the player places in front of the kid via
+// hotkeys (1/2/3) or touch buttons. Stored per level (cleared on level change) and
+// re-stamped each frame so they survive room recompiles; placing on a cell that
+// already holds one removes it (toggle). This replaced the retired auto-fill tables.
+struct PlacedPlat { uint32_t off; uint16_t orig; };
+std::vector<PlacedPlat> s_placed;
+int s_placed_level = -2;
 // Baked per-level platform tables (kPlatTables[level]); idx = row*10 + col.
 #include "platform_tables.inc"
 bool s_button = false;
@@ -687,14 +703,6 @@ void present() {
                             // coast past it; mantle immediately on arrival instead).
                             s_settle_for = i; s_settle_until = s_frame + 18;
                         }
-                        static size_t s_climb_for = SIZE_MAX;
-                        static int s_climb_t0 = 0, s_climb_row = 99;
-                        if (w.up && s_climb_for != i) {
-                            s_climb_for = i; s_climb_t0 = s_frame; s_climb_row = ky;
-                        }
-                        if (w.up && ky < s_climb_row) {     // gained a row: progress
-                            s_climb_row = ky; s_climb_t0 = s_frame;
-                        }
                         if (w.dn && kc == w.col) {
                             s_keymap[0x7d>>3] |= uint8_t(1u<<(0x7d&7));      // Down
                         } else if (w.dn && s_frame < s_settle_until) {
@@ -948,8 +956,20 @@ void video_pump() {
                 }
                 for (const Plat& p : s_plat)
                     mem_write16(st + p.off, p.val);
-                // baked per-level table, keyed on the live level (state+8586)
+                // Manual platform assist: re-stamp the player-placed floor tiles
+                // each frame so they survive room recompiles. Cleared on level change.
                 if (s_platform_assist || s_env_assist) {
+                    int lvl = int(mem_read16(st + 8586));
+                    if (lvl != s_placed_level) { s_placed.clear(); s_placed_level = lvl; }
+                    for (const PlacedPlat& p : s_placed)
+                        mem_write16(st + p.off, 1);
+                }
+                // Retired auto-fill: the baked per-level tables (kPlatTables) are
+                // kept in the build for reference but no longer applied -- the player
+                // now places platforms by hand. Gated off by a compile-time constant
+                // (referencing it keeps it from being an unused symbol/warning).
+                static const bool kAutoFillPlatforms = false;
+                if (kAutoFillPlatforms && (s_platform_assist || s_env_assist)) {
                     int lvl = int(mem_read16(st + 8586));
                     if (lvl >= 1 && lvl <= 14)
                         for (int i = 0; i < kPlatTables[lvl].n; ++i) {
@@ -984,6 +1004,25 @@ void video_pump() {
                         mem_write16(0x080000u - 21064, 1);
                     }
                 }
+            }
+        }
+    }
+
+    // Dev test hook (native): POP2_TEST_PLACE="ms:which" enables the manual assist
+    // and places one platform once -- lets the placement logic be verified headless,
+    // where there are no SDL key events to drive the 1/2/3 hotkeys.
+    {
+        static const char* s_tpl = std::getenv("POP2_TEST_PLACE");   // "ms:which,..."
+        static int s_tpl_i = 0;
+        if (s_tpl) {
+            const char* p = s_tpl;
+            for (int i = 0; i < s_tpl_i && p; i++) { p = std::strchr(p, ','); if (p) p++; }
+            int ms = 0, which = 0;
+            if (p && std::sscanf(p, "%d:%d", &ms, &which) == 2 &&
+                SDL_GetTicks() >= uint32_t(ms)) {
+                s_platform_assist = true;
+                pop2_place_platform(which);
+                s_tpl_i++;
             }
         }
     }
@@ -1049,6 +1088,15 @@ void video_pump() {
                     SDL_SetWindowFullscreen(
                         s_win, s_fullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
                     break;
+                }
+                // Manual platform assist hotkeys 1/2/3 = place a ledge in front /
+                // below-in-front / above-in-front (toggle). Reserved only while the
+                // assist is on, so the digits pass through to the game otherwise.
+                if (s_platform_assist) {
+                    int sc = e.key.keysym.scancode;
+                    if (sc == SDL_SCANCODE_1) { pop2_place_platform(0); break; }
+                    if (sc == SDL_SCANCODE_2) { pop2_place_platform(1); break; }
+                    if (sc == SDL_SCANCODE_3) { pop2_place_platform(2); break; }
                 }
             }
             int vk = mac_vkey(e.key.keysym.scancode);
@@ -1486,6 +1534,46 @@ void video_post_event(uint16_t what, uint32_t message) {
     push_event(what, message);
 }
 
+// Manual platform assist: place (or remove, on a second press) one floor tile
+// relative to the kid's facing -- which 0 = directly in front, 1 = one row below
+// and in front (to step down), 2 = one row above and in front (to climb up).
+// Crossings into the adjacent room are resolved through the room's L/R/U/D links so
+// a ledge can be built at a room edge. Defined for native (the 1/2/3 hotkeys call
+// it) and wasm (exported for the touch buttons).
+extern "C" EMSCRIPTEN_KEEPALIVE void pop2_place_platform(int which) {
+    if (!s_platform_assist) return;
+    uint32_t st = mem_read32(0x080000u - 20500);
+    if (!st) return;
+    uint32_t kb = 0x080000u - 20690;
+    int room = int16_t(mem_read16(kb + 22));
+    int col  = int16_t(mem_read16(kb + 12));
+    int row  = int16_t(mem_read16(kb + 14));
+    int dc   = (int16_t(mem_read16(kb + 2)) == -1) ? -1 : 1;   // facing: -1 = left
+    int tcol = col + dc;
+    int trow = row + (which == 1 ? 1 : which == 2 ? -1 : 0);
+    auto link = [&](int r, int d) {
+        return r >= 1 && r <= 32 ? int(int16_t(mem_read16(st + 8312 + r * 8 + d * 2)))
+                                 : 0; };
+    if (tcol < 0)      { room = link(room, 0); tcol = 9; }   // into the left room
+    else if (tcol > 9) { room = link(room, 1); tcol = 0; }   // into the right room
+    if (trow < 0)      { room = link(room, 2); trow = 2; }   // into the room above
+    else if (trow > 2) { room = link(room, 3); trow = 0; }   // into the room below
+    if (room < 1 || room > 32) return;                       // no room there
+    uint32_t off = uint32_t((room - 1) * 60 + (trow * 10 + tcol) * 2);
+    int lvl = int(mem_read16(st + 8586));
+    if (lvl != s_placed_level) { s_placed.clear(); s_placed_level = lvl; }
+    for (size_t i = 0; i < s_placed.size(); ++i)
+        if (s_placed[i].off == off) {                 // already placed -> remove it
+            mem_write16(st + off, s_placed[i].orig);   // restore the original tile
+            s_placed.erase(s_placed.begin() + size_t(i));
+            g_recompile_in = 2;
+            return;
+        }
+    s_placed.push_back({off, mem_read16(st + off)});   // place (remember original)
+    mem_write16(st + off, 1);                          // floor
+    g_recompile_in = 2;                                // show it (recompile room)
+}
+
 #ifdef __EMSCRIPTEN__
 // On-screen touch controls call this (Module._pop2_touch_key(vk, down)) to
 // press/release a Mac virtual key: arrows 0x7B-0x7E, Shift 0x38, Esc 0x35.
@@ -1512,8 +1600,9 @@ extern "C" EMSCRIPTEN_KEEPALIVE void pop2_touch_key(int vk_, int down) {
 // Web "assist" toggles, applied each frame in video_pump (see above).
 extern "C" EMSCRIPTEN_KEEPALIVE void pop2_set_invincible(int on) { s_invincible = (on != 0); }
 extern "C" EMSCRIPTEN_KEEPALIVE void pop2_set_hp_boost(int n) { s_hp_boost = n; }
-// Platform assist toggles. Turning platforms on mid-level also forces a recompile
-// of the current room (g_post_load_recompile path) so the build shows at once.
+// Platform assist toggle: enables MANUAL platform placement (the player builds
+// ledges with hotkeys 1/2/3 or the touch buttons). Turning it on mid-level forces a
+// recompile of the current room so any (re-stamped) ledges show at once.
 extern "C" EMSCRIPTEN_KEEPALIVE void pop2_set_platforms(int on) {
     s_platform_assist = (on != 0);
     if (s_platform_assist) g_recompile_in = 2;   // rebuild the current room next frame

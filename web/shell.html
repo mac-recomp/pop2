@@ -236,6 +236,12 @@ kbd{font-family:var(--font-mono);font-size:.66rem;color:var(--parch-100);min-wid
 .tc-actions .tc-act{position:absolute;}
 .tc-attack{right:0;bottom:0;}                                   /* primary: under the thumb */
 .tc-step{right:clamp(96px,24vw,124px);bottom:clamp(62px,15.5vw,80px);}  /* secondary: further up-left, well clear of Attack */
+/* manual platform-build buttons — vertical column on the right, shown only when the
+   Platform builder assist is enabled (body.plat-mode). Order top→bottom: above/front/below */
+.tc-plats{position:absolute;right:clamp(10px,3vw,22px);top:50%;transform:translateY(-58%);
+  display:none;flex-direction:column;gap:clamp(7px,1.8vw,11px);pointer-events:none;}
+body.plat-mode #stage[data-state="playing"] .tc-plats{display:flex;}
+.tc-plat{width:clamp(46px,11.5vw,58px);height:clamp(46px,11.5vw,58px);border-radius:12px;font-size:clamp(.85rem,2.8vw,1.15rem);line-height:1;}
 /* Menu kept small and up top, far from the action thumbs (no accidental pause) */
 .tc-menu-btn{position:absolute;top:clamp(8px,2.4vw,15px);left:50%;transform:translateX(-50%);
   width:clamp(48px,12vw,58px);height:clamp(30px,7vw,36px);border-radius:8px;font-size:1rem;}
@@ -354,6 +360,12 @@ body.has-saved-data .forget-data{display:block;}
           <button class="tc-btn tc-act tc-step"   type="button" data-vk="56" aria-label="Careful step, grab a ledge, pick up">Step</button>
           <button class="tc-btn tc-act tc-attack" type="button" data-vk="59" aria-label="Draw sword and attack">Attack</button>
         </div>
+        <!-- manual platform assist (shown only when the assist is enabled) -->
+        <div class="tc-plats">
+          <button class="tc-btn tc-plat" type="button" data-plat="2" aria-label="Build a ledge above and in front (climb)">▥↑</button>
+          <button class="tc-btn tc-plat" type="button" data-plat="0" aria-label="Build a ledge in front">▥→</button>
+          <button class="tc-btn tc-plat" type="button" data-plat="1" aria-label="Build a ledge below and in front (step down)">▥↓</button>
+        </div>
       </div>
     </div>
   </main>
@@ -400,7 +412,7 @@ body.has-saved-data .forget-data{display:block;}
           <span class="legend-title">Assists</span>
           <label class="assist-row"><input type="checkbox" id="assist-invincible" /><span>Invincibility — never lose health</span></label>
           <label class="assist-row"><input type="checkbox" id="assist-hp" /><span>Start each level with 6 health (instead of 3)</span></label>
-          <label class="assist-row"><input type="checkbox" id="assist-platforms" /><span>Build platforms — fill the pits so no leaps are needed</span></label>
+          <label class="assist-row"><input type="checkbox" id="assist-platforms" /><span>Platform builder — place ledges yourself (keys 1/2/3, or the ▥ buttons): in front · below · above</span></label>
           <label class="assist-row"><input type="checkbox" id="assist-no-enemies" /><span>Clear the way — no enemies spawn</span></label>
           <button id="add-time" class="assist-action" type="button" title="Rewinds the game clock, giving you more time before the game's time limit">＋&nbsp; Add 10 minutes of game time</button>
           <div class="assist-speed">
@@ -621,7 +633,10 @@ body.has-saved-data .forget-data{display:block;}
     var hpb = document.getElementById('assist-hp');
     if (hpb) hpb.addEventListener('change', function () { if (Module._pop2_set_hp_boost) Module._pop2_set_hp_boost(hpb.checked ? 6 : 0); });
     var plat = document.getElementById('assist-platforms');
-    if (plat) plat.addEventListener('change', function () { if (Module._pop2_set_platforms) Module._pop2_set_platforms(plat.checked ? 1 : 0); });
+    if (plat) plat.addEventListener('change', function () {
+      if (Module._pop2_set_platforms) Module._pop2_set_platforms(plat.checked ? 1 : 0);
+      document.body.classList.toggle('plat-mode', plat.checked);   // reveal the ▥ buttons
+    });
     var noen = document.getElementById('assist-no-enemies');
     if (noen) noen.addEventListener('change', function () { if (Module._pop2_set_remove_enemies) Module._pop2_set_remove_enemies(noen.checked ? 1 : 0); });
 
@@ -786,6 +801,17 @@ body.has-saved-data .forget-data{display:block;}
     // ---- on-screen touch controls → injected Mac key presses ----
     function touchKey(vk, down) { if (Module._pop2_touch_key) Module._pop2_touch_key(vk, down ? 1 : 0); }
     Array.prototype.forEach.call(document.querySelectorAll('.tc-btn'), function (b) {
+      var plat = b.getAttribute('data-plat');
+      if (plat !== null) {   // manual platform button: one-shot place/remove on press
+        b.addEventListener('pointerdown', function (e) {
+          e.preventDefault(); b.classList.add('held');
+          if (Module._pop2_place_platform) Module._pop2_place_platform(parseInt(plat, 10));
+        });
+        var unhold = function () { b.classList.remove('held'); };
+        b.addEventListener('pointerup', unhold);
+        b.addEventListener('pointercancel', unhold);
+        return;
+      }
       var vk = parseInt(b.getAttribute('data-vk'), 10);
       function press(e) { e.preventDefault(); b.classList.add('held'); try { b.setPointerCapture(e.pointerId); } catch (x) {} touchKey(vk, true); }
       function release(e) { e.preventDefault(); if (!b.classList.contains('held')) return; b.classList.remove('held'); touchKey(vk, false); }

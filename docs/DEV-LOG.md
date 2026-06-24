@@ -1261,3 +1261,26 @@ Lesson: the per-level dump MUST come from the real level (New Game for L1), not 
 mislabeled save. The other dumps (L2-14) were checked and match their levels (env
 1/3/3/3/4/4/4/4/2/2/2/2/6). User's principle confirmed: a pit on the path gets a
 BRIDGE at the walk row (walk across), not a cushion below (fall + climb back).
+
+## 2026-06-24 — Pivot: retire auto-fill, add MANUAL player-placed platforms
+
+The auto-fill approach (a solver baking per-level platform tables) was retired at the
+user's call: it was fragile to verify end-to-end, and a mislabeled bundled save had
+made it fill the wrong level. Replaced by a manual platform builder the player drives:
+
+* The "Platform builder" assist toggle (s_platform_assist) enables it.
+* Three inputs place one floor tile relative to the kid's FACING (kb+2: 0=right,
+  -1=left): hotkeys 1/2/3 (native) and three touch buttons ▥→ / ▥↓ / ▥↑ (web) ->
+  in front / below-and-in-front (step down) / above-and-in-front (climb up). Pressing
+  the same input on the same cell again REMOVES it (toggle), restoring the original tile.
+* pop2_place_platform(which) reads room/col/row/facing, resolves room-edge crossings
+  through the L/R/U/D links, stamps floor (re-stamped every frame so it survives room
+  recompiles), and recompiles the room so it shows at once.
+* The baked tables (kPlatTables) and the solver tools (tools/level_solve.py, gen_path,
+  manual-fills.txt, ...) are KEPT in the tree as reference/knowledge but no longer
+  applied -- gated off by a compile-time constant (`kAutoFillPlatforms`).
+
+Validated headless via a dev hook (POP2_TEST_PLACE="ms:which,..."): on Level 1 the kid
+places a ledge in front (tile 0->1), removes it on a second press (->0), and places
+below and above. Also cleaned a stale unused-variable warning in the auto-navigator.
+Native + wasm rebuilt; the pop2_place_platform export is present in the JS glue.
