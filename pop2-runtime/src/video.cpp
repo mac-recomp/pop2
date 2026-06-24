@@ -573,6 +573,74 @@ void present() {
         }
     }
 
+    // POP2_AUTONAV=path.txt — auto-navigate the kid along a solver-computed route
+    // (lines "DIR room col row"; DIR holds keys U/D/L/R). Holds the keymap keys
+    // toward each waypoint (the input-decode auto-repeats them), advances on
+    // arrival (with look-ahead for skipped cells), and logs reached-end / stuck /
+    // died. The deterministic in-game traversal test.
+    {
+        struct Wp { uint8_t up, dn, lf, rt; int room, col, row; };
+        static const std::vector<Wp> s_nav = [] {
+            std::vector<Wp> v;
+            const char* f = std::getenv("POP2_AUTONAV");
+            if (!f) return v;
+            FILE* fp = std::fopen(f, "r");
+            if (!fp) return v;
+            char dir[16]; int rm, c, r;
+            while (std::fscanf(fp, "%15s %d %d %d", dir, &rm, &c, &r) == 4) {
+                Wp w{0,0,0,0,rm,c,r};
+                for (char* p = dir; *p; ++p) {
+                    if (*p=='U') w.up=1; else if (*p=='D') w.dn=1;
+                    else if (*p=='L') w.lf=1; else if (*p=='R') w.rt=1;
+                }
+                v.push_back(w);
+            }
+            std::fclose(fp);
+            std::fprintf(stderr, "[nav] loaded %zu waypoints\n", v.size());
+            return v;
+        }();
+        if (!s_nav.empty()) {
+            static size_t i = 0; static int last_adv = 0; static bool done = false;
+            static int started = 0;
+            uint32_t kb = 0x080000u - 20690;
+            int kr = int16_t(mem_read16(kb + 22)), kc = int16_t(mem_read16(kb + 12)),
+                ky = int16_t(mem_read16(kb + 14));
+            int seq = int16_t(mem_read16(0x080000u - 20556));
+            auto clrkeys = []{ for (int vk : {0x7b,0x7c,0x7d,0x7e})
+                s_keymap[vk>>3] &= uint8_t(~(1u<<(vk&7))); };
+            if (!started && seq == 15 && s_frame > 300) { started = s_frame; last_adv = s_frame;
+                std::fprintf(stderr, "[nav] start f%d at (r%d c%d row%d)\n", s_frame, kr, kc, ky); }
+            if (started && !done) {
+                if (seq == 185 || seq == 206) {
+                    std::fprintf(stderr, "[nav] DIED at waypoint %zu/%zu (r%d c%d row%d)\n",
+                                 i, s_nav.size(), kr, kc, ky); done = true; clrkeys();
+                } else {
+                    // arrival + look-ahead (skip up to 5 cells)
+                    for (size_t j = i; j < s_nav.size() && j < i + 6; ++j)
+                        if (s_nav[j].room==kr && s_nav[j].col==kc && s_nav[j].row==ky) {
+                            i = j + 1; last_adv = s_frame; break;
+                        }
+                    if (i >= s_nav.size()) {
+                        std::fprintf(stderr, "[nav] REACHED END (%zu waypoints, f%d)\n",
+                                     s_nav.size(), s_frame); done = true; clrkeys();
+                    } else if (s_frame - last_adv > 300) {
+                        std::fprintf(stderr, "[nav] STUCK at waypoint %zu/%zu want(r%d c%d row%d) "
+                                     "kid(r%d c%d row%d)\n", i, s_nav.size(),
+                                     s_nav[i].room, s_nav[i].col, s_nav[i].row, kr, kc, ky);
+                        done = true; clrkeys();
+                    } else {
+                        clrkeys();
+                        const Wp& w = s_nav[i];
+                        if (w.up) s_keymap[0x7e>>3] |= uint8_t(1u<<(0x7e&7));
+                        if (w.dn) s_keymap[0x7d>>3] |= uint8_t(1u<<(0x7d&7));
+                        if (w.lf) s_keymap[0x7b>>3] |= uint8_t(1u<<(0x7b&7));
+                        if (w.rt) s_keymap[0x7c>>3] |= uint8_t(1u<<(0x7c&7));
+                    }
+                }
+            }
+        }
+    }
+
     // POP2_DUMP_STATE=frame[,frame...][:size] — dump the level-state blob
     // (*(a5-20500)) to /tmp/pop2_state_fN.bin at each listed frame.
     static const char* st_env = std::getenv("POP2_DUMP_STATE");
