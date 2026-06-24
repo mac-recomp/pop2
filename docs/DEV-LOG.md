@@ -1359,3 +1359,18 @@ Confirmed 60 fps under a real-compositor headless run (old headless throttles rA
 an artifact). Remaining CPU is the real per-frame render cost (the busy-wait spin is gone);
 how warm it runs now depends on the GPU. Guest loop untouched — it just blocks in the pump
 once per frame.
+
+## 2026-06-24 — -O3 + profiled the render path; GPU-palette rewrite ruled out
+
+After the rAF fix, agents mapped the optimization avenues and I profiled where the
+per-frame CPU actually goes (instrumented the palette-convert loop in present(), gated
+behind #fps). Result: the 8-bit→RGBA palette convert is only ~0.40 ms/frame (~2% of one
+core) — NOT the bottleneck. So the tempting GPU palette-LUT shader rewrite (bypass
+SDL_Renderer for raw GLES2) is ruled out: high risk for ~2% return. The real cost is the
+recompiled 68k engine redrawing the whole playfield every frame (no dirty-rect) plus the
+GL present — that's the floor, and dirty-rect surgery on the generated code is too risky.
+Applied the safe remaining lever: -O2 → -O3 (the HP-drain "miscompile" worry was long
+since disproven). Verified at -O3: Level 10 loads, +10 timer works (8→18), 60 fps under a
+real-compositor run. Rejected (agents): SIMD (convert loop isn't auto-vectorizable + Safari
+gaps), JSPI (leaner but breaks Firefox). Minor remaining options: -sENVIRONMENT=web/closure
+(smaller download), or a 30 fps cap (halves per-frame work — cooler but choppier).

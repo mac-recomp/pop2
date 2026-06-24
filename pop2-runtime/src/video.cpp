@@ -390,6 +390,9 @@ void present() {
     int pitch = 0;
     if (SDL_LockTexture(s_tex, nullptr, &pixels, &pitch) != 0) return;
     const uint8_t* fb = g_mem + FB_BASE;
+#ifdef __EMSCRIPTEN__
+    double _ct = emscripten_get_now();          // [profiling] palette-convert cost
+#endif
     for (int y = 0; y < kHeight; y++) {
         uint32_t* dst = reinterpret_cast<uint32_t*>(
             static_cast<uint8_t*>(pixels) + size_t(y) * pitch);
@@ -397,6 +400,16 @@ void present() {
         for (int x = 0; x < kWidth; x++)
             dst[x] = src[x] ? s_pal[src[x]] : 0xFF000000u;
     }
+#ifdef __EMSCRIPTEN__
+    {   // [profiling] average palette-convert ms/frame; only logged with #fps in the URL
+        static const bool s_pf = EM_ASM_INT({ return (typeof location !== 'undefined' &&
+                                  location.hash.indexOf('fps') >= 0) ? 1 : 0; });
+        static double s_cm = 0; static int s_cn = 0;
+        s_cm += emscripten_get_now() - _ct;
+        if (++s_cn >= 120) { if (s_pf) std::fprintf(stderr,
+            "[conv] palette-convert %.2f ms/frame\n", s_cm / s_cn); s_cm = 0; s_cn = 0; }
+    }
+#endif
     SDL_UnlockTexture(s_tex);
     SDL_RenderClear(s_ren);
     SDL_RenderCopy(s_ren, s_tex, nullptr, nullptr);

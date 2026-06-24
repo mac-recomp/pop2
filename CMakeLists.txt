@@ -87,8 +87,8 @@ if(EMSCRIPTEN)
     #   level-14 finale logic: f2_54d6 integrates HP toward zero and f6_4382 drives it,
     #   both gated on the env8582==6 finale flag, and it reproduces on -O0 native too.
     #   So -O2 is safe; it's the verified web choice. (Native still builds -O0.)
-    target_compile_options(pop2 PRIVATE -O2 -g0)
-    target_link_options(pop2 PRIVATE -O2 -g0)
+    target_compile_options(pop2 PRIVATE -O3 -g0)
+    target_link_options(pop2 PRIVATE -O3 -g0)
 
     target_compile_options(pop2 PRIVATE "-sUSE_SDL=2")
     target_link_options(pop2 PRIVATE
