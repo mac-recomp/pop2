@@ -1160,3 +1160,12 @@ structure issues, not missing platforms: the tables prove the cells reachable
 without jumps, and a human (or a tighter per-level input script) clears them. The
 remaining work is per-level input tuning + a few more hand cushions in
 tools/manual-fills.txt, level by level.
+
+## 2026-06-24 — Auto-navigator: adaptive climb (Up first, grab only when stalled)
+
+Replaced the always-grab climb with an adaptive one: hold Up + the horizontal
+(which does a free climb or a 2-row room-seam climb-grab, and sets facing), and add
+Shift to grab-mantle only after the climb stalls (no row gained for ~30 frames).
+The unconditional Shift-grab had risked the free 2-row climbs that already worked on
+Up alone. Net: L13 reaches further (waypoint 8 -> 11) and the grab still fires where
+a capped ledge needs it.
