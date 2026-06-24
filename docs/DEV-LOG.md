@@ -1346,3 +1346,16 @@ full CPU core (100% main-thread, ~510 MB). Two compounding fixes:
 Result (headless Chrome, bundled "Level 10" save): main-thread CPU **100% → ~10%**, steady
 **60 fps** (not slowed), `+10` timer (8→18) and the no-freeze behavior both still pass.
 Should markedly cut fan noise / battery draw. Verified via ~/pop2-webtest/cpu_run.mjs.
+
+## 2026-06-24 — Pace the web loop on requestAnimationFrame (fix the frame-limiter stutter)
+
+The previous frame-limiter (emscripten_sleep at the present point) cut the guest thread's
+CPU but made the experience WORSE: the setTimeout-based sleep desynced from the display
+vsync, so Firefox's compositor churned (main process 14% → 125%) and the picture stuttered
+and felt slowed (user report). Replaced the present-point sleep with a requestAnimationFrame
+yield (pop2_yield_to_frame): the loop idles until the next vsync, so presents line up with
+the screen refresh — smooth, cheap compositor — while the thread still idles between frames.
+Confirmed 60 fps under a real-compositor headless run (old headless throttles rAF to ~11 fps,
+an artifact). Remaining CPU is the real per-frame render cost (the busy-wait spin is gone);
+how warm it runs now depends on the GPU. Guest loop untouched — it just blocks in the pump
+once per frame.

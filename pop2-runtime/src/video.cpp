@@ -21,6 +21,13 @@ EM_ASYNC_JS(void, pop2_yield_to_browser, (), {
   }
   await globalThis.__pop2yield();
 });
+// Yield until the browser's next animation frame (vsync-aligned). Pacing the display
+// loop on this — rather than a setTimeout sleep — keeps presents in lockstep with the
+// screen refresh, so the compositor stays cheap and the picture doesn't stutter, while
+// the thread still idles between frames.
+EM_ASYNC_JS(void, pop2_yield_to_frame, (), {
+  await new Promise((res) => requestAnimationFrame(res));
+});
 #endif
 
 #include <cstdlib>
@@ -1505,17 +1512,14 @@ void video_pump() {
         s_last_present = now;
         present();
 #ifdef __EMSCRIPTEN__
-        // Frame-limit to ~60 Hz. video_pump() is the universal pump (every event
-        // poll and the recompiled main loop's VBL busy-wait reach it). Resuming
-        // ASAP made that busy-wait spin a full CPU core; instead, once a frame is
-        // drawn, idle the thread until the next frame is due (emscripten_sleep =
-        // Asyncify-based real sleep, not a spin). If the frame overran, fall back
-        // to a plain MessageChannel yield so input/timers still run and we never
-        // stall. The guest loop is never restructured — it just blocks in the
-        // pump until its next frame, so the core sleeps instead of burning.
-        uint32_t after = SDL_GetTicks();
-        if (now + 16 > after) emscripten_sleep(now + 16 - after);
-        else pop2_yield_to_browser();
+        // Pace the display loop on the screen's refresh: yield until the next vsync
+        // (requestAnimationFrame). The recompiled main loop otherwise busy-waits for
+        // its VBL and pins a core; resuming ASAP burned 100%, and a setTimeout-based
+        // sleep cut the guest's CPU but desynced from vsync — the compositor churned
+        // and the picture stuttered. rAF idles the thread until the next frame AND
+        // lines presents up with vsync: smooth and low-CPU. The guest loop is never
+        // restructured — it just blocks in the pump until its next frame.
+        pop2_yield_to_frame();
         static const bool s_fps_trace =
             EM_ASM_INT({ return (typeof location !== 'undefined' &&
                                   location.hash.indexOf('fps') >= 0) ? 1 : 0; });
