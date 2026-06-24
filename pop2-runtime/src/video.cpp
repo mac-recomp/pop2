@@ -606,8 +606,10 @@ void present() {
             int kr = int16_t(mem_read16(kb + 22)), kc = int16_t(mem_read16(kb + 12)),
                 ky = int16_t(mem_read16(kb + 14));
             int seq = int16_t(mem_read16(0x080000u - 20556));
-            auto clrkeys = []{ for (int vk : {0x7b,0x7c,0x7d,0x7e})
-                s_keymap[vk>>3] &= uint8_t(~(1u<<(vk&7))); };
+            auto clrkeys = []{ for (int vk : {0x38,0x7b,0x7c,0x7d,0x7e})
+                s_keymap[vk>>3] &= uint8_t(~(1u<<(vk&7))); };  // incl. Shift (0x38):
+                // else a grab/careful-step Shift leaks into later walks, turning
+                // every step into a stalling careful step.
             if (!started && seq == 15 && s_frame > 300) { started = s_frame; last_adv = s_frame;
                 std::fprintf(stderr, "[nav] start f%d at (r%d c%d row%d)\n", s_frame, kr, kc, ky); }
             if (started && !done) {
@@ -713,15 +715,18 @@ void present() {
                             // dead, no coast); between steps the kid is mid-animation
                             // so we hold nothing and let him settle. Then mantle.
                             if (seq >= 87 && seq <= 99) {
-                                // hanging from the grabbed ledge -> pull up. The
-                                // pull-up is edge-triggered on Up and Up was already
-                                // held to grab, so pulse it for a fresh rising edge.
+                                // hanging from the grabbed ledge -> pull up. Keep
+                                // Shift held (grab) and pulse Up for a fresh rising
+                                // edge (the pull-up is edge-triggered and Up was
+                                // already held during the grab).
+                                s_keymap[0x38>>3] |= uint8_t(1u<<(0x38&7));  // hold grab
                                 if ((s_frame % 12) < 6)
                                     s_keymap[0x7e>>3] |= uint8_t(1u<<(0x7e&7));
                             } else if (kc == src) {
                                 s_keymap[0x7e>>3] |= uint8_t(1u<<(0x7e&7));  // Up
-                                if (s_frame - s_climb_t0 > 30)               // stalled
-                                    s_keymap[0x38>>3] |= uint8_t(1u<<(0x38&7)); // grab
+                                s_keymap[0x38>>3] |= uint8_t(1u<<(0x38&7));  // +Shift:
+                                // jump-grab the ledge (Shift is cleared each frame
+                                // now, so the grab must press it explicitly).
                             } else if (seq == 15) {
                                 int hk = kc > src ? 0x7b : 0x7c;            // toward src
                                 s_keymap[hk>>3] |= uint8_t(1u<<(hk&7));
@@ -740,6 +745,18 @@ void present() {
                                 if (w.lf) s_keymap[0x7b>>3] |= uint8_t(1u<<(0x7b&7));
                                 if (w.rt) s_keymap[0x7c>>3] |= uint8_t(1u<<(0x7c&7));
                             }
+                        }
+                        static const bool s_navdbg =
+                            std::getenv("POP2_NAV_DEBUG") != nullptr;
+                        if (s_navdbg && s_frame % 12 == 0) {
+                            auto kset = [](int vk) {
+                                return (s_keymap[vk>>3] >> (vk&7)) & 1; };
+                            std::fprintf(stderr, "[navdbg] f%d i=%zu wp(r%d c%d row%d "
+                                "u%d d%d l%d r%d) kid(r%d c%d row%d seq%d) "
+                                "keys[U%d D%d L%d R%d S%d]\n", s_frame, i,
+                                w.room, w.col, w.row, w.up, w.dn, w.lf, w.rt,
+                                kr, kc, ky, seq, kset(0x7e), kset(0x7d),
+                                kset(0x7b), kset(0x7c), kset(0x38));
                         }
                     }
                 }

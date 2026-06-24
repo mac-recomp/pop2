@@ -1227,3 +1227,15 @@ between steps -- no run/coast/overshoot; (2) at the launch column press Up to
 jump-grab the ledge; (3) when hanging (seq 87-99) pulse Up for the fresh rising edge
 that pulls him up. The kid now climbs room21's row2->row1 ledge (was the hard stick).
 Next micro-stick: walking left along row1 past a pillar tile.
+
+## 2026-06-24 — Caverns level auto-traversed END TO END
+
+Found the last bug: clrkeys() (the per-frame nav key reset) cleared the four arrow
+keys but NOT Shift, so a grab/careful-step Shift leaked into every following walk,
+turning each step into a stalling careful step -- the kid mantled into room21's
+upper row then froze. Fix: clrkeys also clears Shift, and each climb phase
+(careful-step onto the launch column, the jump-grab, and the hang pull-up) presses
+Shift explicitly. Result: **the auto-navigator now reaches the END of the caverns
+level -- all 86 waypoints, start to the far reachable cell, with no horizontal jumps
+and no fatal falls.** The full descent (diagonal-staircase open pits), the room21
+grab-mantle, and the walk-out all chain cleanly.
