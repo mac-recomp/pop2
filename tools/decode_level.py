@@ -30,7 +30,10 @@ TILE = {
 # stands at the bpB (lower) level, NOT on bpT -- confirmed in-game (walking off a
 # floor onto a bp column climbs DOWN to the bpB row). So bpB(8) is walkable and
 # bpT(9) is not (it is the block's upper body, a non-standing surface).
-WALKABLE = {1, 3, 4, 5, 6, 8, 10, 11, 14, 16, 17, 19, 23, 24, 33, 34, 49}
+# 22 (c22) is a floor item tile (the L8 father's-sword pickup); the prince stands
+# on it, so it is walkable -- excluding it made the solver read it as a gap and
+# path a drop where the kid actually walks straight across (L8 room9).
+WALKABLE = {1, 3, 4, 5, 6, 8, 10, 11, 14, 16, 17, 19, 22, 23, 24, 33, 34, 49}
 
 
 def w16(buf, off, signed=False):

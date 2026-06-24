@@ -1122,3 +1122,11 @@ tools/manual-fills.txt and rebuild_tables.py merges them into the per-level tabl
 First entry: L3's room18->room20 col7 shaft (18:27,20:7) -- with it the kid climbs
 down a row at a time instead of free-falling across the seam to his death, taking
 the L3 auto-nav from ~waypoint 67 to past 70 (deeper into room20's cavern).
+
+## 2026-06-24 — Solver tile model: c22 is a walkable item tile
+
+Tile 22 (the L8 father's-sword floor pickup, also L6 room17) was excluded from the
+walkable set, so the solver read it as a gap and pathed a drop where the kid in fact
+walks straight across -- on L8 that sent the auto-nav the wrong way out of the start
+room (room9 -> room21 instead of descending). Added 22 to WALKABLE; L8 now traverses
+from the start through several rooms instead of diverging on the first move.
