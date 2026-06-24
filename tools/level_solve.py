@@ -237,15 +237,48 @@ def solve(buf, start_room, start_col, start_row, seed=None):
         if not added:
             break
 
+    # Cushion pass: give every intended descent steeper than SAFE a rung SAFE
+    # tiles down, iterated into a ladder, so no fall on a reachable path exceeds
+    # SAFE (no damage / no splat). Only drops that LAND in the intended world
+    # (`full`, computed with a survivable fall limit) get rungs -- a death pit is a
+    # sheer drop past FATAL whose bottom is not in `full`, so it is left alone, and
+    # the rung-lands-in-`full` test means the bottom stays reachable (drop off each
+    # rung), so a ladder never softlocks. Every rung is safety-checked.
+    cushions = 0
+    cushion_cells = []
+    for _ in range(600):
+        safe = reach(g, start, extra, False, SAFE)
+        added = False
+        for cell in safe:
+            gr, gc = cell
+            for dc in (-1, 1):
+                nc = gc + dc
+                if g.stand(gr, nc, extra):
+                    continue
+                land, dist = g.drop_land(gr, nc, extra, FATAL - 1)
+                if land is not None and dist > SAFE and (land, nc) in full:
+                    rung = (gr + SAFE, nc)
+                    if rung not in extra and rung in g.tiles and safe_to_add({rung}):
+                        extra.add(rung)
+                        cushions += 1
+                        cushion_cells.append(g.cell2rc[rung])
+                        added = True
+                        break
+            if added:
+                break
+        if not added:
+            break
+
     safe = reach(g, start, extra, False, SAFE)
     full_stand = [c for c in full if g.stand(*c, extra)]
     unreached = [c for c in full_stand if c not in safe]
     fills = sorted({g.cell2rc[c] for c in extra if c in g.cell2rc})
     report.append('rooms=%d start=(r%d c%d row%d) reachable_full=%d '
-                  'safe_no_jump=%d/%d still_unreached=%d fills=%d rejected_seed=%d'
+                  'safe_no_jump=%d/%d still_unreached=%d fills=%d rejected_seed=%d '
+                  'cushions=%d'
                   % (len(g.rooms), start_room, start_col, start_row,
                      len(full), len(safe & set(full_stand)), len(full_stand),
-                     len(unreached), len(fills), len(rejected)))
+                     len(unreached), len(fills), len(rejected), cushions))
     if rejected:
         report.append('  rejected (would block an intended drop): '
                       + ",".join('%d:%d' % tuple(x) for x in rejected))
@@ -253,6 +286,9 @@ def solve(buf, start_room, start_col, start_row, seed=None):
         rcs = sorted({g.cell2rc[c] for c in unreached if c in g.cell2rc})
         report.append('  unreached without a jump: '
                       + ",".join('%d:%d' % rc for rc in rcs))
+    if cushion_cells:
+        report.append('  cushions: '
+                      + ",".join('%d:%d' % rc for rc in cushion_cells))
     extra_outside = [c for c in extra if c not in g.cell2rc]
     if extra_outside:
         report.append('  WARN %d fills outside any room (off-grid)' % len(extra_outside))

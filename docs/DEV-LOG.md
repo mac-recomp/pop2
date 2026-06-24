@@ -994,3 +994,24 @@ shape: partially open, then event-gated. So 11/14 levels are traversal-verified 
 the other 3 are verified *as far as the level design allows statically* -- their
 platforms are still geometry-filled in every room and render (L6 confirmed by
 teleport). Closing those needs the event system decoded or a human playtest.
+
+## 2026-06-24 — Platform assist: fatal-fall cushions, built and empirically tested
+
+Took on the cushions (and tested them in-game rather than refusing on softlock risk).
+The solver now adds a cushion pass: every intended descent steeper than SAFE (3) gets
+a floor rung 3 tiles down, iterated into a ladder, so no fall on a reachable path
+exceeds 3 (no damage / no splat). It only cushions drops that LAND in the intended
+world `full` (computed with a survivable fall limit), so a death pit -- a sheer drop
+past FATAL whose bottom is not in `full` -- is left alone; and because each rung is a
+single tile the prince can drop off, the bottom stays reachable, so a ladder cannot
+softlock. Every rung is safety-checked (never shrinks `full`). 40 cushions across the
+levels (modest -- most descents are already climbable ≤3).
+
+Empirically validated in-game (the point of having saves/teleport/HP readout):
+* **Cushion works** — teleport the prince into an L8 descent (room 6): with the assist
+  he lands HP=3 (caught at depth 3); without it he takes the full fall to HP=2.
+* **No softlock** — stand him on that cushion and walk: he moves off freely
+  (col 6→8→9), so the rung catches him without trapping him.
+* **Death pits left alone** — the L13 room-19 sheer 13-tile shaft still kills (HP→0,
+  respawn) and is correctly not cushioned (its bottom isn't on the intended path).
+Tables now 715 cells. Native + wasm rebuilt.
