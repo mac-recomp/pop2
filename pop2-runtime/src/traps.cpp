@@ -173,21 +173,19 @@ static uint32_t ticks_now() {
 
 uint32_t ticks_live() { return ticks_now(); }
 
-// Assist: grant `minutes` of game time by pushing the time-limit DEADLINE further
-// into the future. The game's per-frame time handler (f2_15d0) holds the limit as an
-// absolute TickCount in the A5 world at A5-22230 and forces the time-up ending once
-// the live TickCount passes it. Adding minutes*3600 ticks (60/sec) to that deadline
-// buys time WITHOUT touching the clock the rest of the engine reads — so animation
-// and event scheduling are unaffected. (The old approach rewound that shared clock,
-// which stalled the whole game until real time caught back up — the reported freeze.)
+// Assist: grant `minutes` more game time. The remaining time is held in WHOLE MINUTES
+// at A5-20430 — loaded from save offset 38 (clamped to 75), shown in the HUD, ticked
+// down as the clock runs, and checked against 0 to trigger the time-up ending. We add
+// to that counter directly (clamped to 75, the same ceiling the game uses on load), so
+// the player both sees more time and actually gets it. This touches only the timer
+// value — not the shared game clock — so it can never stall the engine (the old code
+// rewound that clock, which is what froze the game).
 void time_add_minutes(int minutes) {
     if (minutes <= 0) return;
-    const uint32_t kDeadline = 0x080000u - 22230;   // A5-22230
-    uint32_t deadline = mem_read32(kDeadline);
-    if (deadline == 0) return;          // limit not armed (menus/cutscenes) — nothing to extend
-    uint32_t now = ticks_now();
-    uint32_t base = deadline > now ? deadline : now;   // extend from whichever is later
-    mem_write32(kDeadline, base + uint32_t(minutes) * 3600u);
+    const uint32_t kMinutes = 0x080000u - 20430;   // A5-20430: remaining time, in minutes
+    uint32_t m = uint32_t(mem_read16(kMinutes)) + uint32_t(minutes);
+    if (m > 75) m = 75;
+    mem_write16(kMinutes, uint16_t(m));
 }
 
 // Assist: set the game-speed multiplier (1.0 = normal). The accumulator banks

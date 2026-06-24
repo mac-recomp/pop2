@@ -1307,3 +1307,22 @@ Two user-reported issues from playing the web build:
    fill is poorly covered). Swapped the platform buttons to ▬ (▬↑/▬→/▬↓ — U+25AC, in the
    same well-covered set as the working d-pad triangles) and reworded the settings label to
    be glyph-free. Updated the +time tooltip (no longer claims it "rewinds the clock").
+
+## 2026-06-24 — +time now adds to the ACTUAL timer (A5-20430), not a sub-minute heartbeat
+
+The earlier +time fix stopped the freeze but bumped the wrong variable: A5-22230 is a
+~1-minute re-arming heartbeat, not the timer the player sees, so the HUD minutes didn't
+change (user repro: loaded a level-10/11 save, pressed +10, the "5 minutes" stayed put).
+Traced the real timer empirically (the bundled saves are the repro):
+
+* Remaining time is a WHOLE-MINUTE counter at **A5-20430** — restored from save offset 38
+  (clamped to 75; seg02 restore @0x1170), shown in the HUD, decremented as time runs out
+  (subq at seg02 0x49cc / 0x5220), compared to 0/1/15, and written back to save@38 (0x138a).
+* The bundled level saves confirm offset 38 IS the visible countdown: L3-5 = 15 min,
+  L6-7 = 12, L9 = 9, L10 = 8, L11 = 7, L13-14 = 5. It is NOT a global level-1 clock — New
+  Game sets A5-20430 = 75 and it doesn't tick there (why an earlier Level-1 watch saw
+  nothing count down).
+
+`time_add_minutes` now adds `minutes` to A5-20430 directly, clamped to 75 (the game's own
+load ceiling). Verified end-to-end in the browser: load the bundled "Level 10" save
+(timer = 8 min), press +10 → timer = 18, and the game clock keeps advancing (no freeze).

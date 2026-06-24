@@ -1047,6 +1047,23 @@ void video_pump() {
         }
     }
 
+    // Dev watch (native): POP2_WATCH_TIME=1 logs candidate time variables every 5s
+    // so a real countdown can be spotted (which word decrements over gameplay).
+    {
+        static const char* s_wt = std::getenv("POP2_WATCH_TIME");
+        static uint32_t s_wt_last = 0;
+        if (s_wt && SDL_GetTicks() - s_wt_last >= 5000) {
+            s_wt_last = SDL_GetTicks();
+            auto w = [](int n) { return int(int16_t(mem_read16(0x080000u - n))); };
+            auto l = [](int n) { return mem_read32(0x080000u - n); };
+            (void)l;
+            std::fprintf(stderr, "[wt] %us tick=%u | MIN(20430)=%d dl(22230)=%u "
+                "w20422=%d w20434=lvl%d w20376=%d w20658=%d\n",
+                SDL_GetTicks()/1000, mem_read32(0x16A),
+                w(20430), mem_read32(0x080000u-22230), w(20422), w(20434), w(20376), w(20658));
+        }
+    }
+
 #ifdef __EMSCRIPTEN__
     // Web assists (toggled from the shell). Boost: when a level resets capacity
     // to the default (max < N), raise max to N and top current HP up to N — so
