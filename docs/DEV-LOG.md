@@ -1284,3 +1284,26 @@ Validated headless via a dev hook (POP2_TEST_PLACE="ms:which,..."): on Level 1 t
 places a ledge in front (tile 0->1), removes it on a second press (->0), and places
 below and above. Also cleaned a stale unused-variable warning in the auto-navigator.
 Native + wasm rebuilt; the pop2_place_platform export is present in the JS glue.
+
+## 2026-06-24 — Fix the +time freeze; fix the unrenderable ▥ glyph
+
+Two user-reported issues from playing the web build:
+
+1. **"Add 10 minutes" froze the game.** `time_add_minutes()` granted time by winding the
+   global game clock (`ticks_now` via `s_tick_offset`) *backward*. But that clock feeds the
+   TickCount trap, low-mem Ticks (`0x16A`) AND every event/animation deadline the engine
+   schedules — winding it back stalled the whole engine until real time caught back up, a
+   freeze proportional to how long you'd played. Fix: `ticks_now()` is now strictly
+   monotonic (`s_tick_offset` deleted). `time_add_minutes()` instead pushes the game's real
+   time-limit DEADLINE forward — `A5-22230`, the absolute TickCount that the per-frame time
+   handler `f2_15d0` compares the live clock against and, if exceeded, fires the time-up
+   ending (#71). The shared clock is left untouched, so animation/event timing is unaffected:
+   no freeze. Verified in-browser — Ticks keep advancing across the +time press, never
+   rewound. (Disasm: `A5-22230` is read/compared/written only by `f2_15d0`/`f2_1640`.)
+   Note: PoP2 does not arm this deadline in early play (it reads 0), so +time is a safe
+   no-op there instead of acting on a non-existent timer.
+
+2. **The ▥ glyph didn't render** in the user's browser font (U+25A5 square-with-horizontal-
+   fill is poorly covered). Swapped the platform buttons to ▬ (▬↑/▬→/▬↓ — U+25AC, in the
+   same well-covered set as the working d-pad triangles) and reworded the settings label to
+   be glyph-free. Updated the +time tooltip (no longer claims it "rewinds the clock").

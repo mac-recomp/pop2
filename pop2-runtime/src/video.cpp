@@ -1027,6 +1027,26 @@ void video_pump() {
         }
     }
 
+    // Dev test hook (native): POP2_TEST_TIME="ms" logs the time-limit deadline
+    // (A5-22230) before/after granting +10 min -- verifies the bump lands on an
+    // armed deadline and (since the shared clock is untouched) never stalls.
+    {
+        void time_add_minutes(int);   // defined in traps.cpp (same namespace)
+        static const char* s_tt = std::getenv("POP2_TEST_TIME");
+        static bool s_tt_done = false;
+        int ms = 0;
+        if (s_tt && !s_tt_done && std::sscanf(s_tt, "%d", &ms) == 1 &&
+            SDL_GetTicks() >= uint32_t(ms)) {
+            uint32_t addr = 0x080000u - 22230;
+            uint32_t before = mem_read32(addr);
+            time_add_minutes(10);
+            uint32_t after = mem_read32(addr);
+            std::fprintf(stderr, "[time] deadline %u -> %u (delta %d)\n",
+                         before, after, int(after) - int(before));
+            s_tt_done = true;
+        }
+    }
+
 #ifdef __EMSCRIPTEN__
     // Web assists (toggled from the shell). Boost: when a level resets capacity
     // to the default (max < N), raise max to N and top current HP up to N — so
@@ -1624,8 +1644,8 @@ extern "C" EMSCRIPTEN_KEEPALIVE int pop2_dbg_peek16(unsigned addr) {
 extern "C" EMSCRIPTEN_KEEPALIVE unsigned pop2_dbg_peek32(unsigned addr) {
     return mem_read32(addr & 0xFFFFFF);                 // 32-bit guest read (pointers)
 }
-// Assist: grant the player N more minutes of game time (rewinds the clock the
-// game reads for its time limit). Wired to the "+10 min" menu button.
+// Assist: grant the player N more minutes of game time (pushes the time-limit
+// deadline later; the shared game clock is left untouched). Wired to the "+10 min" button.
 extern "C" EMSCRIPTEN_KEEPALIVE void pop2_add_time(int minutes) {
     time_add_minutes(minutes);
 }

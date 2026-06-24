@@ -147,7 +147,6 @@ static uint32_t make_window(int16_t wind_id, uint32_t storage,
     return w;
 }
 
-static uint32_t s_tick_offset = 0;   // assist: rewind the game clock to add time
 static double   s_speed     = 1.0;   // assist: game-speed multiplier
 static double   s_scaled    = 0.0;   // accumulated speed-adjusted ticks
 static uint32_t s_last_raw  = 0;
@@ -167,25 +166,28 @@ static uint32_t scaled_ticks() {
     return uint32_t(s_scaled);
 }
 static uint32_t ticks_now() {
-    uint32_t s = scaled_ticks();
-    uint32_t t = s > s_tick_offset ? s - s_tick_offset : 0;   // offset capped on set
+    uint32_t t = scaled_ticks();   // monotonic; never rewound (that stalls the engine)
     mem_write32(0x16A, t);   // low-mem Ticks: the MDRV synth polls it raw
     return t;
 }
 
 uint32_t ticks_live() { return ticks_now(); }
 
-// Assist: grant `minutes` of game time by rewinding the clock the game reads for
-// its time limit (the game tracks elapsed = TickCount - start_tick). Ticks run
-// 60/sec, so a minute is 3600 ticks. Capped so TickCount stays >= 60 and can
-// never underflow or stall — the offset can't exceed the real elapsed ticks
-// (and the early game, where it would, has ample time anyway).
+// Assist: grant `minutes` of game time by pushing the time-limit DEADLINE further
+// into the future. The game's per-frame time handler (f2_15d0) holds the limit as an
+// absolute TickCount in the A5 world at A5-22230 and forces the time-up ending once
+// the live TickCount passes it. Adding minutes*3600 ticks (60/sec) to that deadline
+// buys time WITHOUT touching the clock the rest of the engine reads — so animation
+// and event scheduling are unaffected. (The old approach rewound that shared clock,
+// which stalled the whole game until real time caught back up — the reported freeze.)
 void time_add_minutes(int minutes) {
     if (minutes <= 0) return;
-    uint32_t s = scaled_ticks();
-    uint32_t cap = s > 60 ? s - 60 : 0;
-    uint32_t want = s_tick_offset + uint32_t(minutes) * 3600u;
-    s_tick_offset = want < cap ? want : cap;
+    const uint32_t kDeadline = 0x080000u - 22230;   // A5-22230
+    uint32_t deadline = mem_read32(kDeadline);
+    if (deadline == 0) return;          // limit not armed (menus/cutscenes) — nothing to extend
+    uint32_t now = ticks_now();
+    uint32_t base = deadline > now ? deadline : now;   // extend from whichever is later
+    mem_write32(kDeadline, base + uint32_t(minutes) * 3600u);
 }
 
 // Assist: set the game-speed multiplier (1.0 = normal). The accumulator banks
