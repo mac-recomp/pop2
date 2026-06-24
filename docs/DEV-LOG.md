@@ -1374,3 +1374,17 @@ since disproven). Verified at -O3: Level 10 loads, +10 timer works (8→18), 60 
 real-compositor run. Rejected (agents): SIMD (convert loop isn't auto-vectorizable + Safari
 gaps), JSPI (leaner but breaks Firefox). Minor remaining options: -sENVIRONMENT=web/closure
 (smaller download), or a 30 fps cap (halves per-frame work — cooler but choppier).
+
+## 2026-06-25 — Revert web pacing to the smooth busy-loop (stutter); refocus the night plan
+
+Both CPU-saving pacing experiments regressed smoothness on real hardware: the
+emscripten_sleep limiter made Firefox's compositor churn (main process 14%→125%), and the
+requestAnimationFrame yield beat against the 16 ms present gate (present interval drifts vs
+the 16.67 ms vsync → periodic judder; user reported stutter persisted). Reverted the
+present-point yield to pop2_yield_to_browser (resume ASAP; browser composites at vsync) —
+smooth again, at the cost of the engine's VBL busy-wait pinning a core. Kept -O3.
+Key realisation: the 100% CPU is the busy-WAIT, not the render work (the spin absorbs any
+render savings), so dirty-rect render surgery would NOT lower CPU. The real lever is correct
+idle pacing (present exactly once per vsync, no competing gate), whose smoothness must be
+verified (headless jitter measurement + the user's eyes). Rewrote docs/render-perf-night-plan.md
+around that. pop2_yield_to_frame is kept defined for that work.

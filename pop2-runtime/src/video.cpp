@@ -1525,14 +1525,16 @@ void video_pump() {
         s_last_present = now;
         present();
 #ifdef __EMSCRIPTEN__
-        // Pace the display loop on the screen's refresh: yield until the next vsync
-        // (requestAnimationFrame). The recompiled main loop otherwise busy-waits for
-        // its VBL and pins a core; resuming ASAP burned 100%, and a setTimeout-based
-        // sleep cut the guest's CPU but desynced from vsync — the compositor churned
-        // and the picture stuttered. rAF idles the thread until the next frame AND
-        // lines presents up with vsync: smooth and low-CPU. The guest loop is never
-        // restructured — it just blocks in the pump until its next frame.
-        pop2_yield_to_frame();
+        // Resume ASAP and let the browser composite the canvas at its own vsync — the
+        // smooth path (this is the original behaviour). Idling the loop here to save CPU
+        // kept fighting the compositor: a setTimeout sleep made it churn (Firefox main
+        // 14%->125%), and a requestAnimationFrame yield beat against the 16 ms present
+        // gate (present interval drifts vs the 16.67 ms vsync -> periodic judder). So we
+        // keep the simple yield: smooth, but the engine's VBL busy-wait still pins a
+        // core. Making it both smooth AND low-CPU is a pacing problem to solve with care
+        // (present exactly once per vsync, no competing gate) — see
+        // docs/render-perf-night-plan.md. pop2_yield_to_frame stays defined for that work.
+        pop2_yield_to_browser();
         static const bool s_fps_trace =
             EM_ASM_INT({ return (typeof location !== 'undefined' &&
                                   location.hash.indexOf('fps') >= 0) ? 1 : 0; });
