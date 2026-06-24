@@ -1217,3 +1217,13 @@ arrives at the launch column (col5/6) instead of sailing to the wall at col4. Th
 final mantle itself (room21's row2->row1 step has half-floors and tight headroom)
 still doesn't fire reliably -- a precise jump-grab at the edge of what the
 open-loop follower can do.
+
+## 2026-06-24 — Caverns room21: closed-loop mantle (the hard climb now works)
+
+Replaced the open-loop climb with a closed-loop one and the room21 mantle finally
+fires: (1) position onto the launch column with CAREFUL steps -- step only while
+standing (seq 15) with Shift so each step lands ~1 tile and stops dead, settling
+between steps -- no run/coast/overshoot; (2) at the launch column press Up to
+jump-grab the ledge; (3) when hanging (seq 87-99) pulse Up for the fresh rising edge
+that pulls him up. The kid now climbs room21's row2->row1 ledge (was the hard stick).
+Next micro-stick: walking left along row1 past a pillar tile.

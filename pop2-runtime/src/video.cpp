@@ -678,10 +678,11 @@ void present() {
                         // geometry, not input).
                         static size_t s_settle_for = SIZE_MAX;
                         static int s_settle_until = 0;
-                        if ((w.dn || w.up) && s_settle_for != i) {
-                            // settle before a drop OR a climb: a climb taken at a
-                            // dead run overshoots the climb column and ends up where
-                            // the mantle is wall-blocked, so stop first then climb.
+                        if (w.dn && s_settle_for != i) {
+                            // settle before a drop to bleed off the run (no settle
+                            // before a climb -- the kid reaches the launch column
+                            // facing the climb direction, and a settle just lets him
+                            // coast past it; mantle immediately on arrival instead).
                             s_settle_for = i; s_settle_until = s_frame + 18;
                         }
                         static size_t s_climb_for = SIZE_MAX;
@@ -694,7 +695,7 @@ void present() {
                         }
                         if (w.dn && kc == w.col) {
                             s_keymap[0x7d>>3] |= uint8_t(1u<<(0x7d&7));      // Down
-                        } else if ((w.dn || w.up) && s_frame < s_settle_until) {
+                        } else if (w.dn && s_frame < s_settle_until) {
                             // settle: hold nothing
                         } else if (w.up) {
                             // A diagonal climb-up to (w.col) is launched from the
@@ -705,19 +706,28 @@ void present() {
                             // past the launch column and tries to climb where the
                             // ledge is wall-capped (the room21 stick).
                             int src = w.col + (w.lf ? 1 : w.rt ? -1 : 0);
-                            // Pulse the horizontal (walk rhythm, not a held run) so
-                            // the kid creeps onto the launch column without building
-                            // a run that overshoots it.
-                            bool step = (s_frame % 16) < 9;
-                            if (kc > src) {
-                                if (step) s_keymap[0x7b>>3] |= uint8_t(1u<<(0x7b&7));
-                            } else if (kc < src) {
-                                if (step) s_keymap[0x7c>>3] |= uint8_t(1u<<(0x7c&7));
-                            } else {
+                            // Closed-loop positioning onto the launch column: a held
+                            // run or even a pulse coasts past it with no damping, so
+                            // step there CAREFULLY -- only step while standing (seq
+                            // 15), with Shift (a careful step lands ~1 tile and stops
+                            // dead, no coast); between steps the kid is mid-animation
+                            // so we hold nothing and let him settle. Then mantle.
+                            if (seq >= 87 && seq <= 99) {
+                                // hanging from the grabbed ledge -> pull up. The
+                                // pull-up is edge-triggered on Up and Up was already
+                                // held to grab, so pulse it for a fresh rising edge.
+                                if ((s_frame % 12) < 6)
+                                    s_keymap[0x7e>>3] |= uint8_t(1u<<(0x7e&7));
+                            } else if (kc == src) {
                                 s_keymap[0x7e>>3] |= uint8_t(1u<<(0x7e&7));  // Up
                                 if (s_frame - s_climb_t0 > 30)               // stalled
                                     s_keymap[0x38>>3] |= uint8_t(1u<<(0x38&7)); // grab
+                            } else if (seq == 15) {
+                                int hk = kc > src ? 0x7b : 0x7c;            // toward src
+                                s_keymap[hk>>3] |= uint8_t(1u<<(hk&7));
+                                s_keymap[0x38>>3] |= uint8_t(1u<<(0x38&7));  // Shift step
                             }
+                            // else (mid-step / not standing): hold nothing, settle
                         } else {
                             // Pulse the horizontal when a climb is within reach so the
                             // kid arrives at the climb's launch column at walking
