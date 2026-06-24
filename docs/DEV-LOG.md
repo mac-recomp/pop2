@@ -1015,3 +1015,31 @@ Empirically validated in-game (the point of having saves/teleport/HP readout):
 * **Death pits left alone** — the L13 room-19 sheer 13-tile shaft still kills (HP→0,
   respawn) and is correctly not cushioned (its bottom isn't on the intended path).
 Tables now 715 cells. Native + wasm rebuilt.
+
+## 2026-06-24 — Driving the kid directly: control globals decoded, climb confirmed
+
+Prompted by "why autokey, not call the movement directly" — investigated the kid's
+control path. The input-decode (start of seg04) sets a small control block; decoded
+it empirically (dump a5-13440..-13448 while feeding known inputs): **a5-13444 =
+horizontal (-1 left / +1 right), a5-13440 = vertical (-1 up=climb / +1 down)**, each
+paired with an edge word (a5-13462 / a5-13460). Added an env step-driver
+`POP2_DRIVE="ms:dur:h:v,..."` that writes those directly, and a `[ctl]` line to the
+`POP2_DUMP_KID` trace.
+
+Findings:
+* **Climbing works in-game** — holding Up set a5-13440=-1 and the kid climbed two
+  rows (row2→row0). So the solver's `climb-grab-2` assumption is *correct*, and the
+  11/14 reachability verification stands on real physics (my earlier "the 2-row
+  climb didn't reproduce" was a bad test — the kid was mid-teleport-settle / on a
+  non-climbable column, not a climb that can't happen).
+* **The move is edge-triggered per step**: writing only the held word does nothing;
+  held+edge does exactly one step/climb; a real *held key* walks continuously
+  because the input-decode auto-repeats it. So `POP2_DRIVE` is a precise single-step
+  tool (chain pulses for a route); continuous motion is faithfully done by autokey
+  (which feeds the keymap the input-decode reads). Autokey was never "wrong" — my
+  failed climb tests were from un-settled post-teleport states.
+* The kid stops at genuine floor edges (e.g. L3 room 1 ends ~col 5; beyond is a
+  jump-gap) — which is exactly what the platform fills bridge elsewhere.
+
+Net: climbs/walks are drivable and testable (so the cushion + reachability work is
+empirically grounded, not assumed). Tooling committed for future traversal tests.

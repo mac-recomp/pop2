@@ -411,6 +411,16 @@ void present() {
                      int16_t(mem_read16(0x080000u - 20484)),   // fall counter
                      mem_read16(0x080000u - 21316),            // last-event modifiers
                      int16_t(mem_read16(0x080000u - 20526)));  // vertical state
+        std::fprintf(stderr, "[ctl] c40=%d c42=%d c44=%d c46=%d c48=%d | "
+                     "e60=%d e62=%d e64=%d\n",
+                     int16_t(mem_read16(0x080000u - 13440)),
+                     int16_t(mem_read16(0x080000u - 13442)),
+                     int16_t(mem_read16(0x080000u - 13444)),
+                     int16_t(mem_read16(0x080000u - 13446)),
+                     int16_t(mem_read16(0x080000u - 13448)),
+                     int16_t(mem_read16(0x080000u - 13460)),
+                     int16_t(mem_read16(0x080000u - 13462)),
+                     int16_t(mem_read16(0x080000u - 13464)));
         // SFX gate telemetry: the death/jingle flow polls f5_52c8 on the two
         // ids below until both leave the driver's sample slots (a5-8060/-8058)
         static uint64_t pf = 0, pframes = 0;
@@ -533,6 +543,30 @@ void present() {
                     std::fprintf(stderr, "[poke] a5-%d = %04x done\n", off,
                                  uint16_t(val));
                 }
+            }
+            spec = std::strchr(spec, ',');
+            if (spec) spec++;
+        }
+    }
+
+    // POP2_DRIVE="ms:dur:h:v[,...]" — drive the kid one STEP at a time by writing
+    // its control globals directly (deterministic, bypassing the key/event path):
+    // horizontal a5-13444 (-1 left / +1 right) + edge a5-13462, vertical a5-13440
+    // (-1 up=climb / +1 down) + edge a5-13460. The kid's move is edge-triggered, so
+    // each short pulse = exactly one step/climb; chain pulses (with gaps so the
+    // step completes) to walk a route. Continuous holds are better done via keys
+    // (autokey), which the input-decode auto-repeats. Spec active for [ms, ms+dur).
+    static const char* drive_env = std::getenv("POP2_DRIVE");
+    if (drive_env) {
+        uint32_t t = SDL_GetTicks();
+        for (const char* spec = drive_env; spec && *spec;) {
+            int ms = 0, dur = 0, h = 0, v = 0;
+            if (std::sscanf(spec, "%d:%d:%d:%d", &ms, &dur, &h, &v) >= 4 &&
+                t >= uint32_t(ms) && t < uint32_t(ms) + uint32_t(dur)) {
+                mem_write16(0x080000u - 13444, uint16_t(int16_t(h)));  // horizontal held
+                mem_write16(0x080000u - 13462, uint16_t(int16_t(h)));  // horizontal edge
+                mem_write16(0x080000u - 13440, uint16_t(int16_t(v)));  // vertical held
+                mem_write16(0x080000u - 13460, uint16_t(int16_t(v)));  // vertical edge
             }
             spec = std::strchr(spec, ',');
             if (spec) spec++;
