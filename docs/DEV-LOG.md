@@ -1459,3 +1459,15 @@ focus on `fullscreenchange` (and again ~1.6 s later, after the toast clears) and
 the game. NB: when a Steam-Deck controller is delivered to the page as *keyboard* keys via
 Steam Input rather than as a gamepad, this SDL map doesn't apply — the game keys to bind are
 Ctrl = sword, Shift = careful step, arrows = move (Up = jump).
+
+### web: cap the engine to ~60 fps on high-refresh displays (ProMotion fan fix). A player on
+an M2 Max MacBook (120 Hz ProMotion) reported the fans spinning even idle on level 1 with
+Low-CPU on. Cause: the tick pacing idles via `requestAnimationFrame`, which fires at the
+display's refresh rate — so on a 120 Hz panel the engine advanced one frame per rAF = 120 fps,
+double the work (frame logic + full-screen 68k redraw + compositing) for no benefit, since the
+game's native rate is the Mac's 60 Hz VBL. (The 30 fps cap didn't help: it throttles presents,
+not the engine.) Fix in `video_present_and_idle`: after presenting, keep awaiting animation
+frames until a ~60 fps budget (13 ms) elapses — a clean 2:1 frame-skip on 120 Hz that stays
+vsync-aligned (no stutter beat) and is a no-op on 60 Hz (one frame already exceeds the budget).
+Restores the native 60 fps and roughly halves CPU on ProMotion. Native/headless unaffected
+(Emscripten-only; headless runs busy mode).

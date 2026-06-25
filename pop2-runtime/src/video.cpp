@@ -987,7 +987,16 @@ void video_present_and_idle() {
     // as often. Default (min_ms == 16) never skips, so 60 fps behaviour is unchanged.
     if (g_present_min_ms <= 16 || SDL_GetTicks() - s_last_present >= (uint32_t)g_present_min_ms)
         video_present_record();
-    pop2_yield_to_frame();
+    // Idle to vsync, but cap the engine cadence to ~60 fps even when the display
+    // refreshes faster. rAF fires at the display's rate, so on a 120 Hz ProMotion
+    // Mac the engine + compositor would run at 120 fps — double the work, for no
+    // benefit (the game's native rate is the Mac's 60 Hz VBL) — and spin the fans.
+    // Awaiting animation frames until a ~60 fps budget elapses is a clean 2:1
+    // frame-skip on a 120 Hz panel (still vsync-aligned, so no stutter beat) and a
+    // no-op on 60 Hz (one frame already exceeds the budget).
+    static uint32_t s_last_frame = 0;
+    do { pop2_yield_to_frame(); } while (SDL_GetTicks() - s_last_frame < 13);
+    s_last_frame = SDL_GetTicks();
 }
 #endif
 
