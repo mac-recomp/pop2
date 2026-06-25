@@ -1422,3 +1422,12 @@ tick; `#pace=spin&spin=N` / `#pace=oldraf` kept for debugging. Headless jitter i
 added behind #fps ([jitter] lines). On branch `pacing` only — master/web keep the smooth
 busy-loop until the user confirms tick is smooth on real hardware. Tooling:
 ~/pop2-webtest/jitter_run.mjs (CPU + jitter + fps + alive; STRESS=1 drives movement), toggle_test.mjs.
+
+### web: make Low-CPU (tick) pacing the default + add an optional 30 fps cap. The tick pacing
+from the entry above is confirmed smooth on real hardware, so it is now the browser default
+(`web_pace_init` returns tick; `#pace=busy` restores the old busy-loop for A/B). Separately a
+"30 fps cap" (`pop2_set_fps_cap`) throttles on-screen presents to ~33 ms without touching game
+speed — it halves how often the browser composites the canvas, which is the dominant cost in
+Firefox (WebRender composites the window on the CPU, GPU idle). Both controls now live in a
+collapsible "Performance" panel in the menu: Low-CPU is checked by default, the 30 fps cap is
+opt-in. Native unaffected (both are `#ifdef __EMSCRIPTEN__`).

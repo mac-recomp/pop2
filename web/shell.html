@@ -199,6 +199,11 @@ body::before{
 body.force-touch #stage[data-state="playing"] .touch-controls{display:block!important;}
 .legend-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
 .legend-title{font-family:var(--font-display);font-weight:600;font-size:.74rem;letter-spacing:.22em;text-transform:uppercase;color:var(--gold-300);}
+.perf-details > summary{list-style:none;cursor:pointer;user-select:none;outline:none;}
+.perf-details > summary::-webkit-details-marker{display:none;}
+.perf-details > summary .legend-title::after{content:"▶";margin-left:9px;color:var(--gold-300);font-size:.92rem;position:relative;top:1px;}
+.perf-details[open] > summary .legend-title::after{content:"▼";}
+.perf-details:not([open]) > summary .legend-title{margin-bottom:0;}
 .legend-close{cursor:pointer;color:var(--parch-400);font-family:var(--font-mono);font-size:1rem;line-height:1;width:24px;height:24px;display:flex;align-items:center;justify-content:center;border-radius:4px;}
 .legend-close:hover{color:var(--gold-300);background:rgba(240,216,148,.08);}
 .legend-row{display:flex;align-items:center;gap:12px;padding:7px 0;border-top:1px solid var(--border-faint);}
@@ -276,7 +281,7 @@ body.plat-mode #stage[data-state="playing"] .tc-plats{display:flex;}
 .save-do{flex:none;background:rgba(240,216,148,.12);border:1px solid var(--gold-500);color:var(--gold-300);font-family:var(--font-display);font-weight:600;font-size:.68rem;letter-spacing:.14em;text-transform:uppercase;border-radius:5px;padding:5px 13px;cursor:pointer;}
 .save-do:hover{background:rgba(240,216,148,.22);}
 .legend-saves{display:flex;flex-direction:column;flex:1;min-height:0;}
-.save-list{list-style:none;margin:0;padding:0 6px 0 0;flex:1 1 0;min-height:150px;max-height:min(62vh,520px);overflow-y:auto;scrollbar-gutter:stable;display:flex;flex-direction:column;gap:5px;scrollbar-width:thin;scrollbar-color:var(--gold-700) rgba(0,0,0,.25);}
+.save-list{list-style:none;margin:0;padding:0 6px 0 0;flex:1 1 0;min-height:150px;overflow-y:auto;scrollbar-gutter:stable;display:flex;flex-direction:column;gap:5px;scrollbar-width:thin;scrollbar-color:var(--gold-700) rgba(0,0,0,.25);}
 .save-list::-webkit-scrollbar{width:8px;}
 .save-list::-webkit-scrollbar-track{background:rgba(0,0,0,.22);border-radius:4px;margin:2px;}
 .save-list::-webkit-scrollbar-thumb{background:var(--gold-700);border-radius:4px;}
@@ -414,13 +419,17 @@ body.has-saved-data .forget-data{display:block;}
           <label class="assist-row"><input type="checkbox" id="assist-hp" /><span>Start each level with 6 health (instead of 3)</span></label>
           <label class="assist-row"><input type="checkbox" id="assist-platforms" /><span>Platform builder — build ledges yourself: keys 1 / 2 / 3 = in front · below · above (or the on-screen buttons). Press the same one again to remove.</span></label>
           <label class="assist-row"><input type="checkbox" id="assist-no-enemies" /><span>Clear the way — no enemies spawn</span></label>
-          <label class="assist-row"><input type="checkbox" id="assist-lowcpu" /><span>Low-CPU mode — idles between frames so the fan stays quiet and the battery lasts (still 60 fps). Toggle off if you notice any stutter.</span></label>
           <button id="add-time" class="assist-action" type="button" title="Pushes the game's time limit 10 minutes later (does not affect game speed)">＋&nbsp; Add 10 minutes of game time</button>
           <div class="assist-speed">
             <label for="speed-slider"><span>Game speed</span><b id="speed-val">1×</b></label>
             <input type="range" id="speed-slider" min="0.25" max="3" step="0.25" value="1" />
           </div>
         </div>
+        <details class="legend-section perf-details">
+          <summary><span class="legend-title">Performance</span></summary>
+          <label class="assist-row"><input type="checkbox" id="assist-lowcpu" checked /><span>Low-CPU mode — idle between frames; uses far less CPU (on by default)</span></label>
+          <label class="assist-row"><input type="checkbox" id="assist-30fps" /><span>30 fps cap — refresh half as often; lighter load, a bit less smooth</span></label>
+        </details>
       </div>
       <div class="legend-col">
         <div class="legend-section legend-saves">
@@ -482,7 +491,15 @@ body.has-saved-data .forget-data{display:block;}
     }
     // The engine calls this on its first rendered frame — reveal the canvas
     // exactly then, so the player never stares at a black "playing" screen.
-    Module.onFirstFrame = function () { setState('playing'); };
+    Module.onFirstFrame = function () {
+      setState('playing');
+      // Sync the engine to the perf checkboxes (Low-CPU is on by default; the browser may
+      // have restored a different state on reload). Queried from the DOM so it is robust.
+      var lc = document.getElementById('assist-lowcpu');
+      var fc = document.getElementById('assist-30fps');
+      if (lc && Module._pop2_set_pace)    Module._pop2_set_pace(lc.checked ? 3 : 0);
+      if (fc && Module._pop2_set_fps_cap) Module._pop2_set_fps_cap(fc.checked ? 30 : 0);
+    };
 
     Module.onRuntimeInitialized = function () {
       var hasData = false;
@@ -640,11 +657,14 @@ body.has-saved-data .forget-data{display:block;}
     });
     var noen = document.getElementById('assist-no-enemies');
     if (noen) noen.addEventListener('change', function () { if (Module._pop2_set_remove_enemies) Module._pop2_set_remove_enemies(noen.checked ? 1 : 0); });
-    // Low-CPU pacing: switch the frame loop between the smooth busy-loop (default,
-    // ~100% of a core) and the tick idle (~1/10th the CPU). Runtime-switchable so it
-    // can be A/B'd by eye in the same scene; defaults off so the build is unchanged.
+    // Low-CPU pacing (#pace): tick idle (~1/10th the CPU) vs the smooth busy-loop. ON by
+    // default now (engine default + the onFirstFrame sync above); unchecking switches to
+    // busy. #pace=busy forces the old default for A/B.
     var lowcpu = document.getElementById('assist-lowcpu');
     if (lowcpu) lowcpu.addEventListener('change', function () { if (Module._pop2_set_pace) Module._pop2_set_pace(lowcpu.checked ? 3 : 0); });
+    // 30 fps cap: throttle on-screen presents to ~30/s (halves browser compositing). Independent of Low-CPU.
+    var cap30 = document.getElementById('assist-30fps');
+    if (cap30) cap30.addEventListener('change', function () { if (Module._pop2_set_fps_cap) Module._pop2_set_fps_cap(cap30.checked ? 30 : 0); });
 
     // ---- save manager: named slots through the game's real Save/Open path ----
     // Save sets the slot name + injects Cmd+S; Load sets it + injects Cmd+O; the

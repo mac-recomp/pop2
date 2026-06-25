@@ -932,14 +932,19 @@ enum { PACE_BUSY = 0, PACE_SPIN = 1, PACE_OLDRAF = 2, PACE_TICK = 3 };
 // leave little VBL slack) still clears it — so it stays smooth under load — yet well
 // above any run of consecutive poll traps that game logic produces (measured < 16).
 int g_web_pace = -1, g_web_spin_thresh = 256, g_web_tick_thresh = 32;
+// Min ms between on-screen presents. 16 ≈ 60 fps (default, unchanged behaviour); the
+// "30 fps cap" toggle sets 33 to halve how often the browser composites the canvas.
+// Independent of the pace mode above — it only throttles the present, not game speed.
+int g_present_min_ms = 16;
 void web_pace_init() {
     if (g_web_pace >= 0) return;
     g_web_pace = EM_ASM_INT({
-        if (typeof location === 'undefined') return 0;
+        if (typeof location === 'undefined') return 0;   // headless: busy (no rAF compositor)
+        if (location.hash.indexOf('pace=busy')   >= 0) return 0;   // escape hatch to the old default
         if (location.hash.indexOf('pace=tick')   >= 0) return 3;
         if (location.hash.indexOf('pace=spin')   >= 0) return 1;
         if (location.hash.indexOf('pace=oldraf') >= 0) return 2;
-        return 0;
+        return 3;   // browser default: tick (Low-CPU) — confirmed smooth on real hardware
     });
     int s = EM_ASM_INT({ var m=(typeof location!=='undefined')&&location.hash.match(/spin=([0-9]+)/); return m?(parseInt(m[1])|0):0; });
     if (s > 0) g_web_spin_thresh = s;
@@ -962,7 +967,11 @@ static void video_present_record() {
 // Present + idle until the next animation frame (rAF): vsync-aligned, low CPU.
 // Used by the spin/oldraf paths here and the tick path in the trap dispatcher.
 void video_present_and_idle() {
-    video_present_record();
+    // 30 fps cap (g_present_min_ms > 16): present at most once per min_ms, but idle to the
+    // next frame either way — so the low-CPU idle is kept while the browser composites half
+    // as often. Default (min_ms == 16) never skips, so 60 fps behaviour is unchanged.
+    if (g_present_min_ms <= 16 || SDL_GetTicks() - s_last_present >= (uint32_t)g_present_min_ms)
+        video_present_record();
     pop2_yield_to_frame();
 }
 #endif
@@ -1640,7 +1649,7 @@ void video_pump() {
         if (now - s_last_present > 100) video_present_and_idle();
     } else if (g_web_pace == PACE_SPIN) {
         if (s_spin_n >= (uint32_t)g_web_spin_thresh) video_present_and_idle();
-    } else if (now - s_last_present >= 16) {
+    } else if (now - s_last_present >= (uint32_t)g_present_min_ms) {
         s_last_present = now;
         if (g_web_pace == PACE_OLDRAF) {
             video_present_and_idle();        // 16 ms gate, then rAF idle
@@ -1807,6 +1816,17 @@ extern "C" EMSCRIPTEN_KEEPALIVE void pop2_set_pace(int mode) {
     if (mode == 0 || mode == 3) g_web_pace = mode;
 #else
     (void)mode;
+#endif
+}
+// Perf: cap the on-screen present rate without touching game speed — halves the browser's
+// per-frame compositing cost. fps in (0,60) caps to that rate (30 → ~33 ms/present); 0 or
+// >=60 restores the uncapped ~60 fps. Independent of Low-CPU; wired to the "30 fps cap"
+// toggle. No-op on native.
+extern "C" EMSCRIPTEN_KEEPALIVE void pop2_set_fps_cap(int fps) {
+#ifdef __EMSCRIPTEN__
+    g_present_min_ms = (fps > 0 && fps < 60) ? (1000 / fps) : 16;
+#else
+    (void)fps;
 #endif
 }
 
