@@ -70,7 +70,9 @@ jobs:
           GAME_RAR_URL: ${{ secrets.GAME_RAR_URL }}
         run: |
           [ -n "$GAME_RAR_URL" ] || { echo "::error::set the repo secret GAME_RAR_URL (archive download URL)"; exit 1; }
-          curl -fsSL --retry 3 "$GAME_RAR_URL" -o game.rar
+          # popuw.com blocks non-browser User-Agents (default curl UA -> 403), so present one.
+          curl -fsSL --retry 3 -A "Mozilla/5.0 (X11; Linux x86_64; rv:124.0) Gecko/20100101 Firefox/124.0" \
+               "$GAME_RAR_URL" -o game.rar
           unar -force-overwrite -quiet -o _game game.rar
           sit="$(find _game -type f -name '*.sit' | head -1)"
           [ -n "$sit" ] || { echo "::error::no .sit found inside $GAME_RAR_URL"; exit 1; }
