@@ -605,6 +605,21 @@ body.has-saved-data .forget-data{display:block;}
       if (!document.fullscreenElement) (stage.requestFullscreen || stage.webkitRequestFullscreen).call(stage);
       else (document.exitFullscreen || document.webkitExitFullscreen).call(document);
     });
+    // Keep keyboard/controller input alive in fullscreen: the game canvas must
+    // hold focus, but entering fullscreen — and the browser's "now fullscreen"
+    // toast dismissing a moment later — can move focus off it, which reads as
+    // "controls work for a second, then die". Re-grab focus on the transition
+    // and again just after the toast clears, and whenever the game is tapped.
+    var gameCanvas = Module.canvas;
+    function grabFocus() { try { gameCanvas && gameCanvas.focus({ preventScroll: true }); } catch (e) {} }
+    ['fullscreenchange', 'webkitfullscreenchange'].forEach(function (ev) {
+      document.addEventListener(ev, function () {
+        if (document.fullscreenElement || document.webkitFullscreenElement) {
+          grabFocus(); setTimeout(grabFocus, 1600);
+        }
+      });
+    });
+    if (gameCanvas) gameCanvas.addEventListener('pointerdown', grabFocus);
     var cb = document.getElementById('controls-toggle-cb');
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && cb && cb.checked) cb.checked = false; });
 

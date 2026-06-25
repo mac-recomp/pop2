@@ -1445,3 +1445,17 @@ saves come from repo secrets (`GAME_RAR_URL`, `BUNDLED_SAVES_B64`, the latter ~2
 restored into the volume); Emscripten pinned to 6.0.0. Validated end-to-end locally: the full
 CI pipeline (prep → emcmake → ninja) builds `pop2.{html,js,wasm,data}`, with the HTML
 byte-identical to the local build.
+
+### controls + fullscreen fixes (Steam Deck feedback). Reworked the SDL gamepad map
+(`pad_update`, video.cpp): it had no sword button at all and put jump on B / careful-step on
+A, which players couldn't find. Now d-pad / left stick move; **A = up/jump/climb, B =
+down/crouch**; **X / left-shoulder / left-trigger = Shift** (careful step, grab a ledge, pick
+up, drink); **Y / right-shoulder / right-trigger = Control** (draw sword / strike, the
+previously-missing action — added `s_pad_ctrl`, OR'd into the controlKey modifier); Start =
+Return, Back = Esc. On the web, Emscripten bridges the browser Gamepad API to this same SDL
+map. Separately, fullscreen on Steam-Deck Firefox lost input "after a second" — focus moved
+off the canvas when the browser's fullscreen toast dismissed; `shell.html` now re-grabs canvas
+focus on `fullscreenchange` (and again ~1.6 s later, after the toast clears) and on any tap of
+the game. NB: when a Steam-Deck controller is delivered to the page as *keyboard* keys via
+Steam Input rather than as a gamepad, this SDL map doesn't apply — the game keys to bind are
+Ctrl = sword, Shift = careful step, arrows = move (Up = jump).

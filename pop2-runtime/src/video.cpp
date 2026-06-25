@@ -197,9 +197,14 @@ int mac_vkey(SDL_Scancode sc) {
     }
 }
 
-// ---- gamepad: d-pad/left stick -> arrows, A -> Shift, Start -> Return ----
+// ---- gamepad -> game. d-pad/left stick = move; A = up/jump/climb, B =
+// down/crouch; X / left-shoulder / left-trigger = Shift (careful step, grab a
+// ledge, pick up, drink); Y / right-shoulder / right-trigger = Control (draw
+// sword / strike); Start = Return, Back = Esc/menu. On the web, Emscripten
+// bridges the browser Gamepad API to SDL, so this same mapping drives it. ----
 SDL_GameController* s_pad = nullptr;
 bool s_pad_shift = false;
+bool s_pad_ctrl = false;
 bool s_pad_keys[4];             // left, right, up, down logical state
 
 bool s_fake_cmd = false;   // POP2_AUTOKEY ":cmd" holds a synthetic cmdKey
@@ -218,7 +223,8 @@ uint16_t mac_modifiers() {
     if (s_fake_cmd) r |= 0x0100;
     if (s_fake_shift) r |= 0x0200;
     if (s_fake_ctrl) r |= 0x1000;          // touch Strike acts as Control
-    if (s_pad_shift) r |= 0x0200;          // gamepad A acts as Shift
+    if (s_pad_shift) r |= 0x0200;          // gamepad X/LB/LT = Shift (careful step)
+    if (s_pad_ctrl) r |= 0x1000;           // gamepad Y/RB/RT = Control (sword)
     return r;
 }
 
@@ -317,24 +323,33 @@ void pad_update() {
     auto btn = [&](SDL_GameControllerButton b) {
         return SDL_GameControllerGetButton(s_pad, b) != 0;
     };
+    const int dz = 10000;
+    auto trig = [&](SDL_GameControllerAxis a) {
+        return SDL_GameControllerGetAxis(s_pad, a) > dz;
+    };
     int16_t ax = SDL_GameControllerGetAxis(s_pad, SDL_CONTROLLER_AXIS_LEFTX);
     int16_t ay = SDL_GameControllerGetAxis(s_pad, SDL_CONTROLLER_AXIS_LEFTY);
-    const int dz = 10000;
-    pad_apply(0, 0x7B, 28, btn(SDL_CONTROLLER_BUTTON_DPAD_LEFT) || ax < -dz);
-    pad_apply(1, 0x7C, 29, btn(SDL_CONTROLLER_BUTTON_DPAD_RIGHT) || ax > dz);
-    pad_apply(2, 0x7E, 30, btn(SDL_CONTROLLER_BUTTON_DPAD_UP) ||
-                               btn(SDL_CONTROLLER_BUTTON_B) || ay < -dz);
-    pad_apply(3, 0x7D, 31, btn(SDL_CONTROLLER_BUTTON_DPAD_DOWN) || ay > dz);
-    // A = Shift (careful step / grab / drink) — a modifier, no key event
-    bool shift = btn(SDL_CONTROLLER_BUTTON_A) ||
-                 SDL_GameControllerGetAxis(
-                     s_pad, SDL_CONTROLLER_AXIS_TRIGGERRIGHT) > dz;
-    if (shift != s_pad_shift) {
-        s_pad_shift = shift;
-        const int vk = 0x38;
-        if (shift) s_keymap[vk >> 3] |= uint8_t(1u << (vk & 7));
-        else s_keymap[vk >> 3] &= uint8_t(~(1u << (vk & 7)));
-    }
+    // Move with d-pad / left stick. Up/jump also on A, down/crouch also on B —
+    // so you can jump and climb without reaching for the d-pad.
+    pad_apply(0, 0x7B, 28, btn(SDL_CONTROLLER_BUTTON_DPAD_LEFT)  || ax < -dz);
+    pad_apply(1, 0x7C, 29, btn(SDL_CONTROLLER_BUTTON_DPAD_RIGHT) || ax >  dz);
+    pad_apply(2, 0x7E, 30, btn(SDL_CONTROLLER_BUTTON_DPAD_UP)   ||
+                               btn(SDL_CONTROLLER_BUTTON_A) || ay < -dz);
+    pad_apply(3, 0x7D, 31, btn(SDL_CONTROLLER_BUTTON_DPAD_DOWN) ||
+                               btn(SDL_CONTROLLER_BUTTON_B) || ay >  dz);
+    // Modifiers — held state the engine polls each frame, no key event.
+    // Shift  (careful step / grab / pick up / drink): X, left shoulder, left trigger.
+    // Control (draw sword / strike):                  Y, right shoulder, right trigger.
+    auto set_mod = [&](bool down, bool& state, int vk) {
+        if (down == state) return;
+        state = down;
+        if (down) s_keymap[vk >> 3] |= uint8_t(1u << (vk & 7));
+        else      s_keymap[vk >> 3] &= uint8_t(~(1u << (vk & 7)));
+    };
+    set_mod(btn(SDL_CONTROLLER_BUTTON_X) || btn(SDL_CONTROLLER_BUTTON_LEFTSHOULDER) ||
+            trig(SDL_CONTROLLER_AXIS_TRIGGERLEFT),  s_pad_shift, 0x38);
+    set_mod(btn(SDL_CONTROLLER_BUTTON_Y) || btn(SDL_CONTROLLER_BUTTON_RIGHTSHOULDER) ||
+            trig(SDL_CONTROLLER_AXIS_TRIGGERRIGHT), s_pad_ctrl, 0x3B);
     static bool s_start_was = false, s_back_was = false;
     bool start = btn(SDL_CONTROLLER_BUTTON_START);
     if (start != s_start_was) {
