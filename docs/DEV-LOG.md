@@ -1431,3 +1431,17 @@ speed — it halves how often the browser composites the canvas, which is the do
 Firefox (WebRender composites the window on the CPU, GPU idle). Both controls now live in a
 collapsible "Performance" panel in the menu: Low-CPU is checked by default, the 30 fps cap is
 opt-in. Native unaffected (both are `#ifdef __EMSCRIPTEN__`).
+
+### ci: deploy the web build to GitHub Pages, fetching game data at build time. The repo ships
+engine + tools only (no game data — see .gitignore); `.github/workflows/pages.yml` fetches the
+game archive from a URL at build time, verifies the StuffIt's SHA-256 against the known retail
+hash, unpacks it, builds the wasm, and publishes to Pages — so the copyrighted data lives only
+in the deploy artifact, never in git. `tools/prep-web-data.sh` reproduces the
+`extracted/{app,data,vol}` trees from a `.sit` (unar + dump_resources.py for the app + each
+`Data/*.rsrc`, plus decode_mdrv.py → CODE segment 25 / 25_MIDISynth.bin); validated to
+reproduce the working tree byte-for-byte (2703/2705 files) — the only gap is the hand-authored
+bundled saves, which post-date the 1995 archive. The archive URL and the curated Level 3–14
+saves come from repo secrets (`GAME_RAR_URL`, `BUNDLED_SAVES_B64`, the latter ~2.6 KB of base64
+restored into the volume); Emscripten pinned to 6.0.0. Validated end-to-end locally: the full
+CI pipeline (prep → emcmake → ninja) builds `pop2.{html,js,wasm,data}`, with the HTML
+byte-identical to the local build.

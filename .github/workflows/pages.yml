@@ -1,0 +1,122 @@
+name: Deploy web game to GitHub Pages
+
+# Builds the browser port and publishes it to GitHub Pages. The copyrighted game
+# data is NEVER committed to the repo: it is fetched from an external URL at
+# build time, unpacked inside the runner, and baked only into the Pages deploy
+# artifact. The repository itself ships engine + tools only (see .gitignore).
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deployment at a time; cancel a run that a newer push supersedes.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+env:
+  # Integrity pin: SHA-256 of the StuffIt archive inside the RAR (retail
+  # "Prince of Persia 2" Mac 1.0). The build fails loudly if upstream changes.
+  GAME_SIT_SHA256: 02437dc253dffec4eee516f8e5e0f2ecaccc4bd31f3d6957d42ea4f87b80b080
+  # Emscripten version the project builds with locally — keep CI in lockstep.
+  EM_VERSION: "6.0.0"
+
+# The game-archive URL and the curated saves live in repo *secrets*, not git
+# (Settings -> Secrets and variables -> Actions):
+#   GAME_RAR_URL       required  — the archive download link (keeps even the URL
+#                                  out of the public repo)
+#   BUNDLED_SAVES_B64  optional  — base64 of `tar czf - Level\ *` (Level 3-14,
+#                                  ~2.6 KB); restored into the volume so the web
+#                                  save-manager shows your curated saves
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - name: Checkout (engine + tools, no game data)
+        uses: actions/checkout@v4
+
+      - name: Install unar + ninja
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends unar ninja-build
+
+      - name: Cache Emscripten ${{ env.EM_VERSION }}
+        uses: actions/cache@v4
+        with:
+          path: emsdk
+          key: emsdk-${{ env.EM_VERSION }}
+
+      - name: Set up Emscripten ${{ env.EM_VERSION }}
+        run: |
+          if [ ! -x emsdk/emsdk ]; then
+            git clone --depth 1 https://github.com/emscripten-core/emsdk.git
+          fi
+          cd emsdk
+          ./emsdk install  "${EM_VERSION}"
+          ./emsdk activate "${EM_VERSION}"
+
+      - name: Fetch + verify game data (never stored in the repo)
+        env:
+          GAME_RAR_URL: ${{ secrets.GAME_RAR_URL }}
+        run: |
+          [ -n "$GAME_RAR_URL" ] || { echo "::error::set the repo secret GAME_RAR_URL (archive download URL)"; exit 1; }
+          curl -fsSL --retry 3 "$GAME_RAR_URL" -o game.rar
+          unar -force-overwrite -quiet -o _game game.rar
+          sit="$(find _game -type f -name '*.sit' | head -1)"
+          [ -n "$sit" ] || { echo "::error::no .sit found inside $GAME_RAR_URL"; exit 1; }
+          got="$(sha256sum "$sit" | awk '{print $1}')"
+          if [ "$got" != "$GAME_SIT_SHA256" ]; then
+            echo "::error::game-data hash mismatch (got $got, expected $GAME_SIT_SHA256)"
+            exit 1
+          fi
+          echo "GAME_SIT=$sit" >> "$GITHUB_ENV"
+          echo "verified retail PoP2 Mac 1.0 data ($got)"
+
+      - name: Prepare asset trees from the StuffIt archive
+        run: bash tools/prep-web-data.sh "$GAME_SIT" "$RUNNER_TEMP/data"
+
+      - name: Restore curated bundled saves (optional)
+        env:
+          BUNDLED_SAVES_B64: ${{ secrets.BUNDLED_SAVES_B64 }}
+        run: |
+          if [ -n "$BUNDLED_SAVES_B64" ]; then
+            printf '%s' "$BUNDLED_SAVES_B64" | base64 -d | tar -C "$RUNNER_TEMP/data/vol" -xzf -
+            echo "restored bundled Level 3-14 saves into the volume"
+          else
+            echo "no BUNDLED_SAVES_B64 secret set — building without curated saves (New Game works)"
+          fi
+
+      - name: Build the WebAssembly port
+        run: |
+          source emsdk/emsdk_env.sh
+          emcmake cmake -S . -B build-wasm -G Ninja \
+            -DPOP2_APP_DIR="$RUNNER_TEMP/data/app" \
+            -DPOP2_RSRC_DIR="$RUNNER_TEMP/data/data" \
+            -DPOP2_VOL_DIR="$RUNNER_TEMP/data/vol"
+          ninja -C build-wasm pop2
+
+      - name: Assemble the Pages site
+        run: |
+          mkdir -p _site
+          cp build-wasm/pop2.html _site/index.html
+          cp build-wasm/pop2.js build-wasm/pop2.wasm build-wasm/pop2.data _site/
+          touch _site/.nojekyll   # skip Jekyll; serve files verbatim
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - name: Deploy to GitHub Pages
+        id: deploy
+        uses: actions/deploy-pages@v4
