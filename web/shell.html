@@ -233,14 +233,19 @@ kbd{font-family:var(--font-mono);font-size:.66rem;color:var(--parch-100);min-wid
 .touch-controls{display:none;position:absolute;inset:0;z-index:6;pointer-events:none;}
 #stage[data-state="playing"] .touch-controls{display:block;}
 @media (hover:hover) and (pointer:fine){.touch-controls{display:none!important;}}
+/* In fullscreen the 4:3 game is letterboxed inside a wider screen; pin the touch
+   controls to the whole screen (not the game well) so the d-pad sits in the left
+   margin and the actions in the right margin, instead of overlapping the play. */
+:fullscreen .touch-controls,:-webkit-full-screen .touch-controls{position:fixed;}
 .tc-pad{position:absolute;bottom:clamp(10px,3vw,22px);left:clamp(10px,3vw,22px);
   display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);gap:6px;
   width:clamp(132px,36vw,180px);height:clamp(132px,36vw,180px);}
 .tc-actions{position:absolute;bottom:clamp(10px,3vw,22px);right:clamp(10px,3vw,22px);
-  width:clamp(158px,40vw,200px);height:clamp(128px,32vw,162px);}
+  width:clamp(172px,43vw,220px);height:clamp(148px,37vw,180px);}
 .tc-actions .tc-act{position:absolute;}
-.tc-attack{right:0;bottom:0;}                                   /* primary: under the thumb */
-.tc-step{right:clamp(96px,24vw,124px);bottom:clamp(62px,15.5vw,80px);}  /* secondary: further up-left, well clear of Attack */
+.tc-jump{right:0;bottom:0;}                                          /* primary: jump under the thumb (two-thumb run-jump) */
+.tc-attack{right:clamp(86px,21.5vw,108px);bottom:0;}                /* combat: left of jump */
+.tc-step{right:clamp(42px,10.5vw,54px);bottom:clamp(72px,18vw,90px);}  /* careful step: up between the two */
 /* manual platform-build buttons — vertical column on the right, shown only when the
    Platform builder assist is enabled (body.plat-mode). Order top→bottom: above/front/below */
 .tc-plats{position:absolute;right:clamp(10px,3vw,22px);top:50%;transform:translateY(-58%);
@@ -362,6 +367,7 @@ body.has-saved-data .forget-data{display:block;}
           <button class="tc-btn tc-down"  type="button" data-vk="125" aria-label="Down / crouch">▼</button>
         </div>
         <div class="tc-actions">
+          <button class="tc-btn tc-act tc-jump"   type="button" data-vk="126" aria-label="Jump / climb up">Jump</button>
           <button class="tc-btn tc-act tc-step"   type="button" data-vk="56" aria-label="Careful step, grab a ledge, pick up">Step</button>
           <button class="tc-btn tc-act tc-attack" type="button" data-vk="59" aria-label="Draw sword and attack">Attack</button>
         </div>
@@ -405,12 +411,14 @@ body.has-saved-data .forget-data{display:block;}
     <div class="legend-grid">
       <div class="legend-col">
         <button id="new-game" class="menu-action" type="button">✦&nbsp; New Game</button>
+        <button id="restart-level" class="menu-action" type="button" title="Start the current level over from the beginning (the game's Restart Level)">↻&nbsp; Restart Level</button>
         <div class="legend-section">
           <span class="legend-title">Controls</span>
           <div class="legend-row"><span class="legend-keys"><kbd>←</kbd><kbd>→</kbd><kbd>↑</kbd><kbd>↓</kbd></span><span class="legend-desc"><b>Run, jump &amp; climb</b> — ↑ also blocks in a swordfight</span></div>
           <div class="legend-row"><span class="legend-keys"><kbd>Ctrl</kbd></span><span class="legend-desc"><b>Sword</b> — draw it, then each press is a strike</span></div>
           <div class="legend-row"><span class="legend-keys"><kbd>Shift</kbd></span><span class="legend-desc"><b>Careful step</b> · grab a ledge · pick up</span></div>
           <div class="legend-row"><span class="legend-keys"><kbd>Esc</kbd></span><span class="legend-desc">In-game <b>menu</b> &amp; pause</span></div>
+          <div class="legend-row"><span class="legend-keys"><kbd>↻</kbd></span><span class="legend-desc"><b>Restart Level</b> — start the current level over (button at the top of this menu)</span></div>
           <div class="legend-row"><span class="legend-desc" style="opacity:.62;font-size:.9em;padding-left:2px">Ctrl &amp; Shift work on either side of the keyboard. The original's numpad and letter-key controls also still work.</span></div>
         </div>
         <div class="legend-section">
@@ -809,6 +817,13 @@ body.has-saved-data .forget-data{display:block;}
     var newGameBtn = document.getElementById('new-game');
     if (newGameBtn) newGameBtn.addEventListener('click', function () {
       if (Module._pop2_menu_cmd) Module._pop2_menu_cmd('N'.charCodeAt(0));
+      if (ctlCb) ctlCb.checked = false;
+    });
+
+    // ---- Restart Level: replay the current level (the engine's ⌘R), close menu ----
+    var restartBtn = document.getElementById('restart-level');
+    if (restartBtn) restartBtn.addEventListener('click', function () {
+      if (Module._pop2_menu_cmd) Module._pop2_menu_cmd('R'.charCodeAt(0));
       if (ctlCb) ctlCb.checked = false;
     });
 

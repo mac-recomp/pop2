@@ -1932,7 +1932,17 @@ bool audio_queue(const uint8_t* data, uint32_t bytes, int rate, int bits,
         want.freq = rate;
         want.format = bits == 16 ? AUDIO_S16MSB : AUDIO_U8;
         want.channels = uint8_t(channels);
-        want.samples = 512;
+#ifdef __EMSCRIPTEN__
+        // Emscripten plays SDL audio from a node serviced on the main thread, so a
+        // heavy frame (a cutscene blitting big NIS images) blocks it; a small buffer
+        // then underruns between frames and the voice/music crackle. A larger buffer
+        // gives the audio enough pre-rendered headroom to ride out those bursts. The
+        // raw synth PCM is clean (verified on native), so this is purely a playback
+        // smoothing knob; the modest added latency is unnoticeable for this game.
+        want.samples = 2048;
+#else
+        want.samples = 512;   // native has a real audio thread — keep latency low
+#endif
         s_adev = SDL_OpenAudioDevice(nullptr, 0, &want, nullptr, 0);
         if (!s_adev) {
             std::fprintf(stderr, "[audio] open failed: %s\n", SDL_GetError());

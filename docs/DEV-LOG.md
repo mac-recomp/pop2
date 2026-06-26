@@ -1471,3 +1471,25 @@ frames until a ~60 fps budget (13 ms) elapses — a clean 2:1 frame-skip on 120 
 vsync-aligned (no stutter beat) and is a no-op on 60 Hz (one frame already exceeds the budget).
 Restores the native 60 fps and roughly halves CPU on ProMotion. Native/headless unaffected
 (Emscripten-only; headless runs busy mode).
+
+### web: fix crackling cutscene audio + touch/menu improvements (player feedback). Four fixes
+from a real-device session.
+(1) **Cutscene audio crackled** (voice + music, every browser). Dumped the intro-cutscene PCM
+from the native build (POP2_DUMP_AUDIO) and analysed it: 0% clipping, 0 discontinuities, clean
+DC-centred signal — so the synth is fine and it is a *playback* problem. Emscripten services
+SDL audio on the main thread, and a heavy frame (a cutscene blitting big NIS images) blocks it,
+so the 512-sample buffer underruns between frames. Bumped `want.samples` to 2048 on the web
+build only (native keeps 512 — it has a real audio thread and wants low latency); the larger
+buffer rides out the per-frame bursts. (Not the 60 fps cap — that frees the main thread, if
+anything.)
+(2) **Touch Jump button.** The on-screen d-pad clusters Up with Left/Right, so you can't hold a
+direction and jump with one thumb. Added a dedicated Jump (vk 126) to the right-hand action
+cluster — Jump under the thumb (bottom-right), Attack to its left, Step above — so you move
+with the left thumb and jump with the right.
+(3) **Restart Level.** Added a "Restart Level" button to the menu (the engine's ⌘R — which a
+browser eats as reload, so the button is the web path) wired through `pop2_menu_cmd('R')`, plus
+a legend line.
+(4) **Fullscreen touch layout.** The controls lived inside the 4:3 `.well`, so in a letterboxed
+fullscreen they sat on the playfield with empty side margins. `:fullscreen .touch-controls`
+now uses `position:fixed`, spanning the whole screen, so the d-pad drops into the left margin
+and the actions into the right.
