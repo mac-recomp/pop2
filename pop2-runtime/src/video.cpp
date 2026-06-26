@@ -1668,9 +1668,15 @@ void video_pump() {
     s_spin_n++;                              // pumps since the last present (all modes)
     if (g_web_pace == PACE_TICK) {
         // The trap dispatcher drives present + idle on the guest's poll-trap VBL wait.
-        // Safety net: if that detection ever misses (a non-poll trap in the wait), a
-        // present is forced after 100 ms so the display can't hard-freeze.
-        if (now - s_last_present > 100) video_present_and_idle();
+        // Fallback for when that detection doesn't fire — notably NIS cutscenes, whose
+        // playback loop doesn't busy-wait on the VBL the same way: force a present + idle
+        // here. This must be frequent: the web audio callback runs on the MAIN thread
+        // (SDL2's ScriptProcessorNode), so each long main-thread block between yields
+        // starves it. At 100 ms the cutscene voice/music crackled (block >> the ~42 ms
+        // audio buffer); 24 ms keeps the thread yielding inside the buffer window so the
+        // audio stays fed (and the cutscene renders ~40 fps instead of ~10). During real
+        // gameplay the per-VBL idle keeps s_last_present fresh, so this rarely triggers.
+        if (now - s_last_present > 24) video_present_and_idle();
     } else if (g_web_pace == PACE_SPIN) {
         if (s_spin_n >= (uint32_t)g_web_spin_thresh) video_present_and_idle();
     } else if (now - s_last_present >= (uint32_t)g_present_min_ms) {

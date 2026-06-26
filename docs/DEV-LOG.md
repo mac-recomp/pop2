@@ -1501,3 +1501,18 @@ only the loaded MB (the ratio was meaningless) and paces the bar against the est
 decompressed size (`x / max(y*2, x)`), so it climbs smoothly to 100% instead of pegging at the
 halfway point. (The crackling cutscene audio is still open — the larger web buffer did not fix
 it, pointing at a longer main-thread stall during cutscene rendering rather than buffer size.)
+
+### web: fix the crackling cutscene audio (the real cause — the 100 ms pacing fallback).
+Player confirmed the crackle is *only* in cutscenes; in-level continuous audio is clean — so the
+audio pipeline is fine, something specific to cutscenes starves it. Read SDL2's Emscripten audio
+backend: it plays through a `createScriptProcessor` node whose `onaudioprocess` runs on the MAIN
+thread, sized by `spec.samples` (so the 512→2048 bump did take effect, ~42 ms). The smoking gun
+is in `video_pump`: in tick mode the per-VBL idle is driven from the trap dispatcher's poll-trap
+detection, and `video_pump` itself only force-presents as a **100 ms** safety net. NIS cutscenes
+don't busy-wait the VBL the same way, so they fall through to that 100 ms fallback — the main
+thread blocks ~100 ms between yields, far longer than the ~42 ms audio buffer, so it drains and
+the voice/music crackle continuously (and the cutscene renders ~10 fps). A bigger buffer can't
+win against a 100 ms block. Fix: drop the fallback to **24 ms** — well inside the buffer window,
+so the audio callback stays fed (and cutscenes now render ~40 fps). Real gameplay is unaffected
+(the per-VBL idle keeps `s_last_present` fresh, so the fallback rarely fires). The 2048-sample
+buffer stays (the 24 ms block needs a buffer wider than 24 ms; 512 would be too small).
