@@ -1516,3 +1516,34 @@ win against a 100 ms block. Fix: drop the fallback to **24 ms** — well inside 
 so the audio callback stays fed (and cutscenes now render ~40 fps). Real gameplay is unaffected
 (the per-VBL idle keeps `s_last_present` fresh, so the fallback rarely fires). The 2048-sample
 buffer stays (the 24 ms block needs a buffer wider than 24 ms; 512 would be too small).
+
+### web: block-immune cutscene audio — schedule playback on the audio thread (the real fix).
+The 24 ms pacing change didn't fix it (player confirmed), so I profiled the cutscene properly (CDP
+CPU profile + direct audio-pump-gap and main-thread-block measurement on a `--profiling-funcs`
+build). The crackle is architectural, not a buffer size: SDL2's Emscripten backend runs its audio
+callback on the MAIN thread, and the NIS decoder `f15_3050` runs >90 ms stretches of pure
+recompiled-68k with **no Toolbox trap in the middle** (and ~36 % at interrupt time), so nothing —
+not a bigger buffer, not a trap-dispatcher pump-and-yield hook (built, measured, didn't help,
+reverted) — can keep the callback fed across the block. Moving the synth off-thread is impossible
+(it's welded into the single-threaded guest).
+
+A multi-agent code dig pinned the load-bearing fact: the synth (`f25_*`, its own heap at 0x394600)
+and the visual decoder (`f15_*`, GWorlds) are disjoint subsystems with zero cross-calls, so
+cutscene audio can be generated/buffered AHEAD of the picture. So the fix moves only the PLAYBACK
+off the main thread. `audio_queue` on web now hands each PCM chunk to `pop2_audio_push`, which
+schedules it as an `AudioBufferSourceNode` on the AudioContext's own (audio-thread) clock — once
+`start(t)` is set it plays through any main-thread stall (verified: `AudioContext.currentTime`
+advanced ~0.299 s across a 300 ms forced main-thread stall). The SDL audio device is no longer
+opened on web (its ScriptProcessor would both double-play and starve).
+
+`snd_pump` renders ahead until a JS gate (`pop2_audio_want_more`) is sated; the SDL queue depth is
+replaced by the scheduler's scheduled-but-unplayed lead. The lead is **adaptive**: a cutscene-block
+underrun grows it to cover the next block, and it decays back during gameplay so in-game SFX/
+sword-hit latency stays ~150 ms. Cutscene vs gameplay is told apart by the per-frame VBL poll-idle
+heartbeat (`g_last_gameplay_us`, stamped where the tick-pace idle fires): gameplay frames hit it
+every frame, cutscenes never do — so the big ride-through lead is grown only in cutscenes. Needs no
+SharedArrayBuffer / cross-origin isolation / service worker / recompiler change, so Firefox and
+Safari are unaffected; native keeps real SDL audio (`#ifdef`-guarded, verified compiling). Headless
+(worst case — slow CPU ⇒ bigger blocks): cutscene audio stays continuously buffered (constant
+crackle → a brief tick at the occasional scene transition), gameplay lead settles ~0.15–0.22 s,
+cutscene visuals progress correctly. Real hardware (faster decoder) should be cleaner still.
