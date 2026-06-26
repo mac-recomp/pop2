@@ -525,12 +525,30 @@ body.has-saved-data .forget-data{display:block;}
       });
     };
 
-    // Start gate (preload build): the first click/key starts the game, and the
-    // gesture itself unlocks audio (the context is created afterwards, running).
+    // Web Audio must be created/unlocked INSIDE a user gesture (autoplay policy —
+    // Safari especially will not output from a context first touched off-gesture, and
+    // a context created deep in the engine loop never sees the gesture). The engine's
+    // scheduled-playback sink (pop2_audio_push) reuses window.__pop2ctx. Re-resume on
+    // later gestures too (Safari can re-suspend on focus/visibility changes).
+    function pop2UnlockAudio() {
+      try {
+        var AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) return;
+        if (!window.__pop2ctx) window.__pop2ctx = new AC();
+        if (window.__pop2ctx.state === 'suspended') window.__pop2ctx.resume();
+      } catch (e) {}
+    }
+    ['pointerdown', 'touchstart', 'keydown'].forEach(function (ev) {
+      window.addEventListener(ev, pop2UnlockAudio, true);
+    });
+
+    // Start gate (preload build): the first click/key starts the game; the same
+    // gesture creates + unlocks the audio context (pop2UnlockAudio, above + here).
     function startGate() {
       if (stage.getAttribute('data-state') !== 'start') return;
       startOverlay.removeEventListener('click', startGate);
       document.removeEventListener('keydown', startGateKey, true);
+      pop2UnlockAudio();
       startGame();
     }
     function startGateKey() { startGate(); }
