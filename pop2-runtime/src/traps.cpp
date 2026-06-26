@@ -332,9 +332,6 @@ static int64_t dblbuf_duration_us(uint32_t hdr, uint32_t bufp) {
 
 void snd_chan_pump(Cpu& cpu);
 void sfx_mix_into(uint8_t* buf, uint32_t bytes, int rate, int bits, int chans);
-extern "C" int pop2_audio_want_more();          // video.cpp: web adaptive-lead producer gate
-extern "C" void pop2_audio_set_cutscene(int);   // video.cpp: scheduler cutscene-vs-play gate
-int64_t g_last_gameplay_us = 0;   // stamped at the per-frame VBL poll-idle (gameplay heartbeat)
 
 uint64_t g_dbl_fires = 0, g_dbl_frames = 0;
 
@@ -343,11 +340,6 @@ void snd_pump(Cpu& cpu) {
     static bool s_pumping = false;
     if (s_pumping || s_dblbufs.empty()) return;
     s_pumping = true;
-#ifdef __EMSCRIPTEN__
-    // Cutscene = no gameplay VBL idle for a while. Only then does the scheduler grow
-    // its big ride-through lead; during play it holds a small low-latency lead.
-    pop2_audio_set_cutscene((now_us() - g_last_gameplay_us > 200000) ? 1 : 0);
-#endif
     for (auto& db : s_dblbufs) {
         int chans = int16_t(mem_read16(db.hdr + 0));
         int bits = int16_t(mem_read16(db.hdr + 2));
@@ -359,24 +351,12 @@ void snd_pump(Cpu& cpu) {
         // device accepts them, audio appetite IS the pacing (sequencer and
         // sound stay locked to real time). Time-based pacing is the
         // headless fallback.
-#ifdef __EMSCRIPTEN__
-        const int fired_cap = 48;   // refill the larger adaptive cutscene lead per call
-#else
-        const int fired_cap = 8;
-#endif
-        for (int fired = 0; fired < fired_cap; fired++) {
+        for (int fired = 0; fired < 8; fired++) {
             uint32_t bufp = mem_read32(db.hdr + 12 + 4 * uint32_t(db.cur));
             uint32_t doubleback = mem_read32(db.hdr + 20);
             if (!bufp || !doubleback || !db.next_due) { db.next_due = 0; break; }
             uint32_t frames = mem_read32(bufp);
             uint32_t bytes = frames * uint32_t(chans) * uint32_t(bits / 8);
-#ifdef __EMSCRIPTEN__
-            // The JS scheduler owns an adaptive lead (grows to cover a cutscene
-            // decoder block, decays during gameplay). Render ahead until it is sated;
-            // always render at least one buffer (fired==0).
-            (void)bytes;
-            if (fired > 0 && !pop2_audio_want_more()) break;
-#else
             bool by_audio = audio_queued_bytes() > 0 || fired == 0;
             if (by_audio) {
                 // keep ~4 buffers queued; stop when the device is sated
@@ -385,7 +365,6 @@ void snd_pump(Cpu& cpu) {
             } else if (now_us() < db.next_due) {
                 break;
             }
-#endif
             mem_write32(bufp + 4, mem_read32(bufp + 4) & ~1u);  // ~ready
             Cpu saved = cpu;
             push32(cpu, db.chan);            // pascal: push args left to right
@@ -3054,7 +3033,6 @@ void do_trap(Cpu& cpu, uint16_t opcode) {
         if (g_interrupt_depth == 0 && is_poll_trap(op)) {
             if (++s_consec_poll >= (uint32_t)g_web_tick_thresh) {
                 s_consec_poll = 0;
-                g_last_gameplay_us = now_us();   // a normal per-frame VBL idle = gameplay
                 video_present_and_idle();
             }
         } else {

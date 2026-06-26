@@ -28,101 +28,6 @@ EM_ASYNC_JS(void, pop2_yield_to_browser, (), {
 EM_ASYNC_JS(void, pop2_yield_to_frame, (), {
   await new Promise((res) => requestAnimationFrame(res));
 });
-
-// ---- Block-immune audio playback (cutscene crackle fix) ----
-// SDL2's Emscripten backend plays via a ScriptProcessorNode serviced on the MAIN
-// thread, so a long main-thread block (the NIS decoder runs >90 ms of recompiled
-// 68k with no yield, partly at interrupt time) starves it and the voice/music
-// crackle. Instead, schedule each PCM chunk as an AudioBufferSourceNode on the
-// AudioContext's own (audio-thread) clock: once start(t) is set, playback is immune
-// to main-thread stalls. The synth (snd_pump) keeps producing ahead — its appetite
-// gate plus a larger lead during cutscenes — so the schedule head stays in the
-// future and the sound rides straight through the blocks. The synth and the visual
-// decoder are disjoint subsystems (no shared state), so buffering audio ahead is
-// safe. Needs no SharedArrayBuffer / cross-origin isolation. Web only; native keeps
-// real SDL audio (it has a true audio thread).
-EM_JS(void, pop2_audio_push, (const uint8_t* data, int bytes, int rate, int bits, int channels), {
-  var A = Module.__pop2aud;
-  if (!A) {
-    var Ctor = window.AudioContext || window.webkitAudioContext;
-    var ctx = (Module.SDL2 && Module.SDL2.audioContext) || new Ctor();
-    A = Module.__pop2aud = { ctx: ctx, head: 0, rate: 0, bits: 0, chans: 1,
-                             glitches: 0, targetLead: 0.15, lastGlitch: -1e9, lastDecay: 0, cutscene: 0 };
-    if (Module.SDL2) Module.SDL2.audioContext = ctx;   // share with the #start unlock
-  }
-  var ctx = A.ctx;
-  if (ctx.state === 'suspended') ctx.resume();
-  var ch = channels < 1 ? 1 : channels;
-  A.rate = rate; A.bits = bits; A.chans = ch;
-  var frames, buf, c, i, out;
-  if (bits === 16) {
-    frames = ((bytes >> 1) / ch) | 0;
-    if (frames <= 0) return;
-    buf = ctx.createBuffer(ch, frames, rate);
-    for (c = 0; c < ch; c++) {
-      out = buf.getChannelData(c);
-      for (i = 0; i < frames; i++) {
-        var o = data + (i * ch + c) * 2;
-        var s = (HEAPU8[o] << 8) | HEAPU8[o + 1];   // AUDIO_S16MSB = big-endian
-        out[i] = (s >= 32768 ? s - 65536 : s) / 32768;
-      }
-    }
-  } else {
-    frames = (bytes / ch) | 0;
-    if (frames <= 0) return;
-    buf = ctx.createBuffer(ch, frames, rate);
-    for (c = 0; c < ch; c++) {
-      out = buf.getChannelData(c);
-      for (i = 0; i < frames; i++) out[i] = (HEAPU8[data + i * ch + c] - 128) / 128;
-    }
-  }
-  var src = ctx.createBufferSource();
-  src.buffer = buf;
-  src.connect(ctx.destination);
-  var now = ctx.currentTime;
-  if (A.head < now) {   // underran -> re-anchor; only cutscene blocks grow the lead
-    if (A.cutscene)
-      A.targetLead = Math.min(2.0, Math.max(A.targetLead, (now - A.head) + 0.4));
-    A.lastGlitch = now; A.glitches++;
-    A.head = now + 0.05;
-  }
-  src.start(A.head);
-  A.head += buf.duration;
-});
-// Audio scheduled but not yet played, in SOURCE bytes — the web stand-in for
-// SDL_GetQueuedAudioSize, so snd_pump's appetite gate keeps the right lead built up.
-EM_JS(int, pop2_audio_queued_bytes_web, (), {
-  var A = Module.__pop2aud;
-  if (!A || !A.rate) return 0;
-  var ahead = A.head - A.ctx.currentTime;
-  if (ahead < 0) ahead = 0;
-  return (ahead * A.rate * A.chans * (A.bits >> 3)) | 0;
-});
-// snd_pump asks this whether to keep rendering ahead: 1 while the scheduled lead is
-// below the adaptive target (grown to cover the last cutscene-block underrun), 0 when
-// sated. The target decays back toward low latency during glitch-free gameplay so
-// in-game SFX/sword-hit latency stays small.
-EM_JS(int, pop2_audio_want_more, (), {
-  var A = Module.__pop2aud;
-  if (!A) return 1;            // no scheduler yet -> let the synth prime it
-  var now = A.ctx.currentTime, dt = now - (A.lastDecay || now);
-  A.lastDecay = now;
-  if (!A.cutscene) {
-    // gameplay: hold only a small lead so in-game SFX/sword-hits stay responsive;
-    // let any lead grown by a prior cutscene relax quickly back to baseline.
-    if (A.targetLead > 0.15) A.targetLead = 0.15 + (A.targetLead - 0.15) * Math.pow(0.5, dt / 1.5);
-    return (A.head - now) < 0.15 ? 1 : 0;
-  }
-  // cutscene: adaptive lead grown on decoder-block underruns; decay slowly.
-  if (now - A.lastGlitch > 4.0 && A.targetLead > 0.15)
-    A.targetLead = 0.15 + (A.targetLead - 0.15) * Math.pow(0.5, dt / 6.0);
-  return (A.head - now) < A.targetLead ? 1 : 0;
-});
-// Cutscene gate (set from snd_pump via the gameplay VBL-idle heartbeat): controls
-// whether underruns are allowed to grow the lead and which target the gate holds.
-EM_JS(void, pop2_audio_set_cutscene, (int on), {
-  var A = Module.__pop2aud; if (A) A.cutscene = on;
-});
 #endif
 
 #include <cmath>
@@ -2009,23 +1914,15 @@ bool audio_queue(const uint8_t* data, uint32_t bytes, int rate, int bits,
                  int channels) {
     if (s_audio_dead || std::getenv("POP2_NO_AUDIO")) return false;
 #ifdef __EMSCRIPTEN__
-    // #noaudio in the page URL kills audio entirely (diagnostic / silent mode).
+    // #noaudio in the page URL kills audio entirely (diagnostic / silent mode):
+    // the device never opens, so a load-time freeze tied to Web Audio vanishes
+    // and the game still runs. Checked lazily in-wasm to avoid an export call
+    // before runtime initialization (which aborts).
     static const bool s_no_web_audio =
         EM_ASM_INT({ return (typeof location !== 'undefined' &&
                              location.hash.indexOf('noaudio') >= 0) ? 1 : 0; });
     if (s_no_web_audio) return false;
-    // Diagnostic tap: raw synth PCM (identical to the native stream).
-    static FILE* s_dump = [] {
-        const char* p = std::getenv("POP2_DUMP_AUDIO");
-        return p ? std::fopen(p, "wb") : nullptr;
-    }();
-    if (s_dump) { std::fwrite(data, 1, bytes, s_dump); std::fflush(s_dump); }
-    // Block-immune scheduled Web Audio playback (see pop2_audio_push). No SDL audio
-    // device is opened on the web: SDL's main-thread ScriptProcessor would both
-    // double-play and starve during cutscenes — exactly the crackle we are fixing.
-    pop2_audio_push(data, int(bytes), rate, bits, channels);
-    return true;
-#else
+#endif
     if (s_adev && (rate != s_arate || bits != s_abits ||
                    channels != s_achans)) {
         SDL_CloseAudioDevice(s_adev);
@@ -2041,7 +1938,17 @@ bool audio_queue(const uint8_t* data, uint32_t bytes, int rate, int bits,
         want.freq = rate;
         want.format = bits == 16 ? AUDIO_S16MSB : AUDIO_U8;
         want.channels = uint8_t(channels);
+#ifdef __EMSCRIPTEN__
+        // Emscripten plays SDL audio from a node serviced on the main thread, so a
+        // heavy frame (a cutscene blitting big NIS images) blocks it; a small buffer
+        // then underruns between frames and the voice/music crackle. A larger buffer
+        // gives the audio enough pre-rendered headroom to ride out those bursts. The
+        // raw synth PCM is clean (verified on native), so this is purely a playback
+        // smoothing knob; the modest added latency is unnoticeable for this game.
+        want.samples = 2048;
+#else
         want.samples = 512;   // native has a real audio thread — keep latency low
+#endif
         s_adev = SDL_OpenAudioDevice(nullptr, 0, &want, nullptr, 0);
         if (!s_adev) {
             std::fprintf(stderr, "[audio] open failed: %s\n", SDL_GetError());
@@ -2072,16 +1979,10 @@ bool audio_queue(const uint8_t* data, uint32_t bytes, int rate, int bits,
         }
     }
     return true;
-#endif
 }
 
 uint32_t audio_queued_bytes() {
-#ifdef __EMSCRIPTEN__
-    // Audio scheduled ahead on the audio thread (not SDL's queue) drives the gate.
-    return uint32_t(pop2_audio_queued_bytes_web());
-#else
     return s_adev ? SDL_GetQueuedAudioSize(s_adev) : 0;
-#endif
 }
 
 }  // namespace pop2
