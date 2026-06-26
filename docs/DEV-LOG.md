@@ -1493,3 +1493,11 @@ a legend line.
 fullscreen they sat on the playfield with empty side margins. `:fullscreen .touch-controls`
 now uses `position:fixed`, spanning the whole screen, so the d-pad drops into the left margin
 and the actions into the right.
+
+### web: fix the loading bar reading past 100% ("24.0 / 13.8 MB"). The `pop2.data` is served
+gzip-encoded, so the browser's progress event reports `loaded` as DECOMPRESSED bytes while
+`total` is the compressed Content-Length — `loaded` runs to ~2x `total`. The status now shows
+only the loaded MB (the ratio was meaningless) and paces the bar against the estimated
+decompressed size (`x / max(y*2, x)`), so it climbs smoothly to 100% instead of pegging at the
+halfway point. (The crackling cutscene audio is still open — the larger web buffer did not fix
+it, pointing at a longer main-thread stall during cutscene rendering rather than buffer size.)

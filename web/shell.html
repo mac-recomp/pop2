@@ -485,8 +485,13 @@ body.has-saved-data .forget-data{display:block;}
       var m = text.match(/\((\d+)\s*\/\s*(\d+)\)/);
       if (m) {
         var x = +m[1], y = +m[2];
-        setProgress(y ? x / y : null,
-          'Fetching game data — ' + (x / 1048576).toFixed(1) + ' / ' + (y / 1048576).toFixed(1) + ' MB');
+        // The .data is gzipped, so the browser reports `loaded` (x) as DECOMPRESSED
+        // bytes but `total` (y) as the compressed Content-Length — x runs past y
+        // (the old "24 / 13.8 MB"). Show the loaded MB only, and pace the bar against
+        // the real (decompressed) size: y*2 is a good estimate for this data, and
+        // max(.,x) guarantees it never overshoots if the data compresses better.
+        setProgress(y ? x / Math.max(y * 2, x) : null,
+          'Fetching game data — ' + (x / 1048576).toFixed(1) + ' MB');
       } else { setProgress(null, text); }
     };
 
