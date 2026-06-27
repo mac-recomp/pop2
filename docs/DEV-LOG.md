@@ -1581,6 +1581,7 @@ charset/viewport/title, so the deployed page was bare to crawlers and unfurled w
 Added to `web/shell.html`: a meta description, canonical link, `robots`, `theme-color`, favicons,
 a full Open Graph set, Twitter `summary_large_image` cards, and `VideoGame` JSON-LD structured data.
 Added static `web/robots.txt` (+ sitemap reference), `web/sitemap.xml`, a 1200×630 `web/og-image.png`
-(a crisp in-game screenshot composited over a blurred backdrop), and `web/favicon.{ico,png}`; the
+(the game's "Prince Of Persia 2" title-screen logo over its cloudy-sky background, captured
+from the attract intro via the puppeteer framebuffer harness), and `web/favicon.{ico,png}`; the
 Pages workflow now copies these into `_site`. The `og:image`/`twitter:image` URLs are absolute (as
 the spec requires); the icon links are relative so they resolve under the `/pop2/` project subpath.
