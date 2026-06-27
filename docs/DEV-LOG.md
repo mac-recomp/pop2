@@ -1575,3 +1575,12 @@ A brief crackle remains in the first ~second of a level: the pure-compute level-
 underruns the small gameplay lead before it adapts (audio can't be generated during a trap-free
 block without a large buffer that would lag in-game SFX). Left as a known minor item, accepted by
 the player for now.
+
+### web: add SEO + social metadata to the Pages site. The shell `<head>` previously carried only
+charset/viewport/title, so the deployed page was bare to crawlers and unfurled with no preview.
+Added to `web/shell.html`: a meta description, canonical link, `robots`, `theme-color`, favicons,
+a full Open Graph set, Twitter `summary_large_image` cards, and `VideoGame` JSON-LD structured data.
+Added static `web/robots.txt` (+ sitemap reference), `web/sitemap.xml`, a 1200×630 `web/og-image.png`
+(a crisp in-game screenshot composited over a blurred backdrop), and `web/favicon.{ico,png}`; the
+Pages workflow now copies these into `_site`. The `og:image`/`twitter:image` URLs are absolute (as
+the spec requires); the icon links are relative so they resolve under the `/pop2/` project subpath.

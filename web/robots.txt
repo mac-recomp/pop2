@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://mac-recomp.github.io/pop2/sitemap.xml

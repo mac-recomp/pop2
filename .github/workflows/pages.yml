@@ -112,6 +112,7 @@ jobs:
           mkdir -p _site
           cp build-wasm/pop2.html _site/index.html
           cp build-wasm/pop2.js build-wasm/pop2.wasm build-wasm/pop2.data _site/
+          cp web/robots.txt web/sitemap.xml web/og-image.png web/favicon.ico web/favicon.png _site/
           touch _site/.nojekyll   # skip Jekyll; serve files verbatim
 
       - name: Upload Pages artifact
