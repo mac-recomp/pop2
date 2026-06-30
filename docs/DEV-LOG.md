@@ -1585,3 +1585,11 @@ Added static `web/robots.txt` (+ sitemap reference), `web/sitemap.xml`, a 1200×
 from the attract intro via the puppeteer framebuffer harness), and `web/favicon.{ico,png}`; the
 Pages workflow now copies these into `_site`. The `og:image`/`twitter:image` URLs are absolute (as
 the spec requires); the icon links are relative so they resolve under the `/pop2/` project subpath.
+
+### web: show the player where the game data is being downloaded from. The preload build fetches
+the ~28 MB `pop2.data` archive over the network at startup, but the loading overlay only said
+"Fetching game data — N MB", never from where. Added `Module.locateFile` to the shell (it was
+unset, so Emscripten used its built-in default): it returns `prefix + path` exactly as that default
+does — so wasm/data loading is byte-for-byte unchanged — but captures the `.data` archive's resolved
+URL and shows it under the progress bar as "Downloading from <host><path>" (the full link in the
+title tooltip). Picker (no-preload) builds load from a local file, so the line stays hidden there.

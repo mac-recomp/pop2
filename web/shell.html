@@ -160,6 +160,10 @@ body::before{
 .progress-meta{display:flex;justify-content:space-between;align-items:baseline;margin-top:10px;font-family:var(--font-mono);font-size:.78rem;letter-spacing:.04em;}
 #progress-percent{color:var(--gold-300);font-weight:700;}
 #loading-status{color:var(--parch-400);font-family:var(--font-mono);font-size:.74rem;}
+.progress-source{max-width:min(440px,86%);margin:9px auto 0;font-family:var(--font-mono);font-size:.68rem;letter-spacing:.02em;color:var(--parch-400);opacity:.85;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.progress-source[hidden]{display:none;}
+.progress-source b{color:var(--gold-300);font-weight:600;}
+.progress-source .src-path{color:var(--parch-400);opacity:.7;}
 
 #start-overlay{flex-direction:column;gap:clamp(10px,2.4vw,18px);cursor:pointer;}
 .start-mark{font-size:clamp(1.8rem,6vw,3rem);color:var(--gold-500);filter:drop-shadow(0 0 20px rgba(224,189,107,.5));animation:emberPulse 2.8s ease-in-out infinite;}
@@ -385,6 +389,7 @@ body.has-saved-data .forget-data{display:block;}
             <span id="progress-percent">0%</span>
           </div>
         </div>
+        <div class="progress-source" id="loading-source" hidden></div>
       </div>
 
       <div id="start-overlay" class="overlay overlay-scrim" role="button" tabindex="0">
@@ -511,6 +516,21 @@ body.has-saved-data .forget-data{display:block;}
     var pctEl = document.getElementById('progress-percent');
     var loadStatus = document.getElementById('loading-status');
     var startOverlay = document.getElementById('start-overlay');
+    var srcEl = document.getElementById('loading-source');
+
+    // Show the player where the game data is being fetched from (the .data archive
+    // URL). Populated from Module.locateFile below, before the download starts.
+    function showDataSource(url) {
+      if (!srcEl || !url) return;
+      var host = url, rest = '';
+      try { var u = new URL(url, document.baseURI); host = u.host; rest = u.pathname + u.search; } catch (e) {}
+      srcEl.textContent = '';
+      srcEl.appendChild(document.createTextNode('Downloading from '));
+      var b = document.createElement('b'); b.textContent = host; srcEl.appendChild(b);
+      if (rest && rest !== '/') { var sp = document.createElement('span'); sp.className = 'src-path'; sp.textContent = rest; srcEl.appendChild(sp); }
+      srcEl.title = url;          // full link on hover
+      srcEl.hidden = false;
+    }
 
     function setState(s) { stage.setAttribute('data-state', s); }
     function setProgress(frac, label) {
@@ -541,6 +561,16 @@ body.has-saved-data .forget-data{display:block;}
         setProgress(y ? x / Math.max(y * 2, x) : null,
           'Fetching game data — ' + (x / 1048576).toFixed(1) + ' MB');
       } else { setProgress(null, text); }
+    };
+    // Resolve assets exactly as Emscripten's default would (prefix + path), but
+    // capture the .data archive's real URL so we can show the player its source.
+    Module.locateFile = function (path, prefix) {
+      var url = (prefix || '') + path;
+      if (/\.data$/.test(path)) {
+        var abs = url; try { abs = new URL(url, document.baseURI).href; } catch (e) {}
+        window.__pop2DataURL = abs; showDataSource(abs);
+      }
+      return url;
     };
 
     var started = false;
