@@ -284,27 +284,18 @@ kbd{font-family:var(--font-mono);font-size:.66rem;color:var(--parch-100);min-wid
   .title-main{font-size:clamp(.9rem,3.4vh,1.3rem);}
   .stage{max-width:calc(133vh - 40px);}
 }
-:fullscreen .titlebar,:-webkit-full-screen .titlebar{display:none;}
-/* Fill the WHOLE screen in fullscreen and center the 4:3 game in it, so the
-   on-screen controls sit in the black side margins. An explicit 100vw/100vh (not
-   width:auto) is required because some mobile browsers size the fullscreen element
-   to its 4:3 content and then anchor the controls to THAT box — squeezing the
-   buttons into the game frame. -webkit- variants cover older mobile WebKit. */
-:fullscreen.stage,:-webkit-full-screen.stage{max-width:none;width:100vw;height:100vh;padding:0;border-radius:0;background:#000;}
-:fullscreen .well,:-webkit-full-screen .well{height:100%;width:auto;aspect-ratio:4/3;margin:0 auto;}
+:fullscreen .titlebar{display:none;}
+:fullscreen.stage{max-width:none;width:auto;height:100%;padding:0;border-radius:0;}
+:fullscreen .well{height:100%;width:auto;aspect-ratio:4/3;margin:0 auto;}
 
 /* ON-SCREEN TOUCH CONTROLS — only on touch devices, only while playing */
 .touch-controls{display:none;position:absolute;inset:0;z-index:6;pointer-events:none;}
 #stage[data-state="playing"] .touch-controls{display:block;}
 @media (hover:hover) and (pointer:fine){.touch-controls{display:none!important;}}
-/* In fullscreen the 4:3 game is letterboxed inside a wider screen; spread the touch
-   controls across the whole screen (not the game well) so the d-pad sits in the left
-   margin and the actions in the right margin, instead of overlapping the play. The
-   shell moves .touch-controls out of the (overflow:hidden) .well to be a direct child
-   of the full-screen #stage on enter, so position:absolute here is anchored to the
-   screen — robust on mobile, where position:fixed is anchored to the fullscreen
-   element rather than the viewport. */
-:fullscreen .touch-controls,:-webkit-full-screen .touch-controls{position:absolute;inset:0;}
+/* In fullscreen the 4:3 game is letterboxed inside a wider screen; pin the touch
+   controls to the whole screen (not the game well) so the d-pad sits in the left
+   margin and the actions in the right margin, instead of overlapping the play. */
+:fullscreen .touch-controls,:-webkit-full-screen .touch-controls{position:fixed;}
 .tc-pad{position:absolute;bottom:clamp(10px,3vw,22px);left:clamp(10px,3vw,22px);
   display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);gap:6px;
   width:clamp(132px,36vw,180px);height:clamp(132px,36vw,180px);}
@@ -738,20 +729,6 @@ body.has-saved-data .forget-data{display:block;}
     var gameCanvas = Module.canvas;
     function grabFocus() { try { gameCanvas && gameCanvas.focus({ preventScroll: true }); } catch (e) {} }
     function isFullscreen() { return !!(document.fullscreenElement || document.webkitFullscreenElement); }
-    function isMobile() { try { return matchMedia('(pointer: coarse)').matches; } catch (e) { return false; } }
-
-    // On phones/tablets, fullscreen should play in landscape — the 4:3 game wastes
-    // a portrait screen. Lock the orientation on enter (no-op / silently rejected on
-    // desktop and on iOS, which doesn't support the API), release it on exit.
-    function lockLandscape() {
-      if (!isMobile()) return;
-      try {
-        var so = screen.orientation;
-        var p = so && so.lock && so.lock('landscape');
-        if (p && p.catch) p.catch(function () {});
-      } catch (e) {}
-    }
-    function unlockOrientation() { try { var so = screen.orientation; so && so.unlock && so.unlock(); } catch (e) {} }
 
     // The in-page menu (#controls-legend) lives outside #stage, so it cannot show
     // while #stage is the fullscreen element. Move it inside on enter (and back on
@@ -759,22 +736,12 @@ body.has-saved-data .forget-data{display:block;}
     var legend = document.getElementById('controls-legend');
     var legendHome = legend && legend.parentNode;
     var legendNext = legend && legend.nextSibling;
-    // The touch controls normally live inside .well (overflow:hidden, 4:3). In
-    // fullscreen they must reach the black margins, so move them out to the
-    // full-screen #stage (and anchor them with position:absolute, see CSS).
-    var touchCtl = document.querySelector('.touch-controls');
-    var touchHome = touchCtl && touchCtl.parentNode;
-    var touchNext = touchCtl && touchCtl.nextSibling;
     function onFullscreenChange() {
       if (isFullscreen()) {
         if (legend && legend.parentNode !== stage) stage.appendChild(legend);
-        if (touchCtl && touchCtl.parentNode !== stage) stage.appendChild(touchCtl);
-        lockLandscape();
         grabFocus(); setTimeout(grabFocus, 1600);
       } else {
         if (legend && legendHome && legend.parentNode !== legendHome) legendHome.insertBefore(legend, legendNext);
-        if (touchCtl && touchHome && touchCtl.parentNode !== touchHome) touchHome.insertBefore(touchCtl, touchNext);
-        unlockOrientation();
       }
     }
     ['fullscreenchange', 'webkitfullscreenchange'].forEach(function (ev) {

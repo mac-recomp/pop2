@@ -1632,3 +1632,17 @@ and anchor them with `position:absolute` relative to that full-screen `#stage` i
 rules for older mobile WebKit. (Headless uses desktop fullscreen semantics so this can't be
 regression-tested there directly; the puppeteer geometry harness confirms the controls span the full
 screen and the in-page-menu / gamepad paths are unaffected.)
+
+### web: revert the mobile fullscreen landscape-lock + touch-control reflow — they broke the fit. The
+two prior fullscreen changes (`screen.orientation.lock('landscape')` on enter, and reflowing the
+touch controls into a `100vw`/`100vh` `#stage`) made fullscreen *worse* on the reporter's phone: the
+game was forced to the full landscape width and overflowed vertically, and the previously-working
+flow — open in portrait → fullscreen → physically rotate → game fits with the buttons at the screen
+edges — broke. Root cause: on that browser the orientation lock rotates via a CSS transform while the
+layout viewport stays portrait, so `height:100%`/`100vh` resolve against the portrait height and the
+4:3 game becomes oversized; no CSS sizing fixes that while the lock is active. Reverted both to the
+original behavior (the height-based `#stage`/`.well` fit and `position:fixed` touch controls, which
+lay out correctly once the device is actually in landscape). Kept the unrelated menu-into-`#stage`
+move so the gamepad can still open the in-page menu in fullscreen. Auto-landscape (the original
+request) needs a different approach — the Screen Orientation lock API is unreliable here — so it's
+left to manual rotation for now.
