@@ -1618,3 +1618,17 @@ moved into `#stage` on entering fullscreen (and back to the body on exit) and sh
 position-independent `body.menu-open` rule, so it works in fullscreen too. Verified end to end with
 a simulated standard-mapping pad in the puppeteer harness: open → engine pad suspended → d-pad walks
 focus → speed slider 1→1.25× → B closes → engine pad released.
+
+### web: spread the on-screen touch controls across the screen in fullscreen on mobile. In fullscreen
+the d-pad and action buttons are meant to sit in the black letterbox margins beside the 4:3 game, but
+on mobile they were squeezed inside the game frame, overlapping the play. Cause: the controls used
+`position:fixed`, which on mobile browsers is anchored to the fullscreen element (not the viewport),
+and `:fullscreen.stage` used `width:auto` — so some mobile browsers sized the fullscreen `#stage` to
+its 4:3 content and anchored the controls to that box. Fix: make the fullscreen `#stage` fill the
+screen explicitly (`100vw`/`100vh`, black background), move `.touch-controls` out of the
+`overflow:hidden` `.well` to be a direct child of `#stage` on entering fullscreen (restored on exit),
+and anchor them with `position:absolute` relative to that full-screen `#stage` instead of
+`position:fixed` — robust across browsers. Added `:-webkit-full-screen` variants to the fullscreen
+rules for older mobile WebKit. (Headless uses desktop fullscreen semantics so this can't be
+regression-tested there directly; the puppeteer geometry harness confirms the controls span the full
+screen and the in-page-menu / gamepad paths are unaffected.)
