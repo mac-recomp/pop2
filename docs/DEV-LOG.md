@@ -1601,3 +1601,20 @@ guarded by a coarse-pointer (`matchMedia('(pointer: coarse)')`) check, with the 
 rejection and any thrown exception swallowed — and `screen.orientation.unlock()` on exit. Desktop
 and iOS (which doesn't support the Screen Orientation lock API, and where iPhone has no element
 fullscreen anyway) silently no-op.
+
+### web: open and navigate the in-page menu with a gamepad. The HTML menu (New Game, Restart,
+saved games, assists, game speed) was mouse/touch/keyboard only, and in fullscreen it wasn't
+reachable at all — it lives outside `#stage`. Now a controller opens and drives it.
+Engine (`video.cpp`): added `pop2_pad_suspend(on)` plus an `s_pad_suspended` gate at the top of
+`pad_update()` that releases any held keys/modifiers and returns, so while the menu is open the pad
+navigates the menu rather than steering the prince; and on the web (`#ifdef __EMSCRIPTEN__`) the
+Start button no longer injects Return, freeing it for the shell (Back still maps to Esc / the
+in-game menu on both). Shell (`web/shell.html`): a gamepad poll loop (rAF, gated on
+`gamepadconnected` so there is no idle wakeup without a controller attached) — Start toggles the
+menu (suspending the engine pad, synced through the toggle checkbox's `change` handler), the d-pad
+or left stick move a focus ring (`.gp-focus`) through the visible items, A activates
+buttons/checkboxes, left/right adjust the focused slider (game speed), and B closes. The menu is
+moved into `#stage` on entering fullscreen (and back to the body on exit) and shown via a
+position-independent `body.menu-open` rule, so it works in fullscreen too. Verified end to end with
+a simulated standard-mapping pad in the puppeteer harness: open → engine pad suspended → d-pad walks
+focus → speed slider 1→1.25× → B closes → engine pad released.

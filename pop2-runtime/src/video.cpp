@@ -318,6 +318,7 @@ SDL_GameController* s_pad = nullptr;
 bool s_pad_shift = false;
 bool s_pad_ctrl = false;
 bool s_pad_keys[4];             // left, right, up, down logical state
+bool s_pad_suspended = false;   // web: the in-page menu owns the pad while open
 
 bool s_fake_cmd = false;   // POP2_AUTOKEY ":cmd" holds a synthetic cmdKey
 bool s_fake_shift = false; // synthetic shiftKey while autokey holds vk 0x38
@@ -431,6 +432,18 @@ void pad_apply(int idx, int vk, uint8_t ch, bool want) {
 }
 
 void pad_update() {
+    if (s_pad_suspended) {
+        // The in-page menu (web shell) is driving the pad to navigate itself —
+        // let go of anything we hold so the character doesn't keep moving while
+        // the player browses the menu. Releases are no-ops once already up.
+        pad_apply(0, 0x7B, 28, false);
+        pad_apply(1, 0x7C, 29, false);
+        pad_apply(2, 0x7E, 30, false);
+        pad_apply(3, 0x7D, 31, false);
+        if (s_pad_shift) { s_pad_shift = false; s_keymap[0x38 >> 3] &= uint8_t(~(1u << (0x38 & 7))); }
+        if (s_pad_ctrl)  { s_pad_ctrl  = false; s_keymap[0x3B >> 3] &= uint8_t(~(1u << (0x3B & 7))); }
+        return;
+    }
     if (!s_pad) return;
     auto btn = [&](SDL_GameControllerButton b) {
         return SDL_GameControllerGetButton(s_pad, b) != 0;
@@ -462,12 +475,18 @@ void pad_update() {
             trig(SDL_CONTROLLER_AXIS_TRIGGERLEFT),  s_pad_shift, 0x38);
     set_mod(btn(SDL_CONTROLLER_BUTTON_Y) || btn(SDL_CONTROLLER_BUTTON_RIGHTSHOULDER) ||
             trig(SDL_CONTROLLER_AXIS_TRIGGERRIGHT), s_pad_ctrl, 0x3B);
-    static bool s_start_was = false, s_back_was = false;
+#ifndef __EMSCRIPTEN__
+    // Native: Start = Return. On the web the shell claims the Start/Menu button to
+    // open and drive its in-page menu (see pop2_pad_suspend), so don't also inject
+    // Return there. Back still maps to Esc on both for the in-game menu.
+    static bool s_start_was = false;
     bool start = btn(SDL_CONTROLLER_BUTTON_START);
     if (start != s_start_was) {
         s_start_was = start;
         push_event(start ? 3 : 4, uint32_t(0x24 << 8) | 13);
     }
+#endif
+    static bool s_back_was = false;
     bool back = btn(SDL_CONTROLLER_BUTTON_BACK);
     if (back != s_back_was) {
         s_back_was = back;
@@ -1970,6 +1989,15 @@ extern "C" EMSCRIPTEN_KEEPALIVE void pop2_set_fps_cap(int fps) {
 #else
     (void)fps;
 #endif
+}
+// Gamepad: hand the pad to the in-page menu while it is open. When suspended the
+// engine stops reading the controller (pad_update releases anything held), so the
+// player can navigate the HTML menu with the d-pad/sticks without also steering the
+// character. The shell calls this on menu open (1) / close (0). No-op effect on
+// native (the web shell is the only caller), but kept unconditional so the symbol
+// always exists.
+extern "C" EMSCRIPTEN_KEEPALIVE void pop2_pad_suspend(int on) {
+    s_pad_suspended = (on != 0);
 }
 
 // Inject a Cmd+<letter> menu command straight into the game's event queue,

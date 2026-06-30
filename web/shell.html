@@ -213,6 +213,13 @@ body::before{
   transition:opacity .2s var(--ease-stand), transform .2s var(--ease-stand), visibility .2s;
 }
 .controls-toggle-cb:checked ~ #controls-legend{opacity:1;visibility:visible;transform:translate(-50%,-50%) scale(1);}
+/* Position-independent open state: the checkbox-sibling rule above stops matching
+   once the menu is moved into #stage for fullscreen, so mirror the open state to a
+   body class (kept in sync with the checkbox in JS). */
+body.menu-open #controls-legend{opacity:1;visibility:visible;transform:translate(-50%,-50%) scale(1);}
+/* Gamepad focus ring — the item the d-pad/stick is on, distinct from hover. */
+#controls-legend .gp-focus{outline:2px solid var(--gold-400);outline-offset:2px;border-radius:6px;box-shadow:0 0 0 4px rgba(240,216,148,.18);}
+#controls-legend label.gp-focus{outline-offset:3px;}
 /* two columns: controls + assists | saved games (stacks on narrow screens) */
 .legend-grid{display:grid;grid-template-columns:1.05fr 1fr;gap:22px;align-items:stretch;}
 .legend-col{display:flex;flex-direction:column;gap:14px;min-width:0;}
@@ -737,11 +744,19 @@ body.has-saved-data .forget-data{display:block;}
     }
     function unlockOrientation() { try { var so = screen.orientation; so && so.unlock && so.unlock(); } catch (e) {} }
 
+    // The in-page menu (#controls-legend) lives outside #stage, so it cannot show
+    // while #stage is the fullscreen element. Move it inside on enter (and back on
+    // exit) so it can be opened — e.g. with the gamepad — without leaving fullscreen.
+    var legend = document.getElementById('controls-legend');
+    var legendHome = legend && legend.parentNode;
+    var legendNext = legend && legend.nextSibling;
     function onFullscreenChange() {
       if (isFullscreen()) {
+        if (legend && legend.parentNode !== stage) stage.appendChild(legend);
         lockLandscape();
         grabFocus(); setTimeout(grabFocus, 1600);
       } else {
+        if (legend && legendHome && legend.parentNode !== legendHome) legendHome.insertBefore(legend, legendNext);
         unlockOrientation();
       }
     }
@@ -932,7 +947,15 @@ body.has-saved-data .forget-data{display:block;}
     }
     // Refresh the slot list whenever the menu popover is opened.
     var ctlCb = document.getElementById('controls-toggle-cb');
-    if (ctlCb) ctlCb.addEventListener('change', function () { if (ctlCb.checked) renderSaves(); });
+    if (ctlCb) ctlCb.addEventListener('change', function () {
+      var open = ctlCb.checked;
+      // Mirror the open state to a body class (drives visibility when the menu has
+      // been moved into #stage for fullscreen) and hand the gamepad to the menu so
+      // navigating it doesn't also steer the character.
+      document.body.classList.toggle('menu-open', open);
+      if (Module._pop2_pad_suspend) Module._pop2_pad_suspend(open ? 1 : 0);
+      if (open) renderSaves();
+    });
 
     // ---- New Game: start a fresh game from level 1 (the engine's Cmd+N), close menu ----
     var newGameBtn = document.getElementById('new-game');
@@ -996,6 +1019,137 @@ body.has-saved-data .forget-data{display:block;}
       b.addEventListener('pointerup', release);
       b.addEventListener('pointercancel', release);
     });
+
+    // ---- gamepad → in-page menu -------------------------------------------------
+    // A controller player can open the menu (New Game / saves / assists / speed)
+    // with the Start/Menu button — including in fullscreen, where the on-screen
+    // Menu button isn't reachable — and drive it with the d-pad/stick + A/B. While
+    // the menu is open the engine's own pad reading is suspended (pop2_pad_suspend,
+    // synced from the menu-open state), so these inputs move the menu, not the
+    // prince. The engine no longer maps Start on the web, so it's ours to use.
+    (function gamepadMenu() {
+      if (!('getGamepads' in navigator)) return;
+      var legendEl = document.getElementById('controls-legend');
+      if (!ctlCb || !legendEl) return;
+
+      var B_A = 0, B_B = 1, B_BACK = 8, B_START = 9, B_DUP = 12, B_DDOWN = 13, B_DLEFT = 14, B_DRIGHT = 15;
+      var AX = 0.5;                 // stick dead-zone for menu navigation
+      var btnPrev = {};             // edge state for discrete buttons
+      var dirPrev = { up: false, down: false, left: false, right: false };
+      var repeatAt = 0;             // next time a held direction may auto-repeat
+      var focusIdx = -1;
+
+      function menuOpen() { return ctlCb.checked; }
+      function setMenu(open) {
+        if (ctlCb.checked === open) return;
+        ctlCb.checked = open;
+        ctlCb.dispatchEvent(new Event('change'));   // body class + pad-suspend + saves
+      }
+      // Visible, enabled, interactive items inside the menu, in top-to-bottom order.
+      function items() {
+        return Array.prototype.filter.call(
+          legendEl.querySelectorAll('button, input, summary, [tabindex]'),
+          function (el) {
+            if (el.disabled || el.type === 'hidden') return false;
+            return el.offsetParent !== null;          // skips collapsed <details> etc.
+          });
+      }
+      function hiTarget(el) {
+        if (el.tagName === 'INPUT' && el.closest) { var l = el.closest('label'); if (l && legendEl.contains(l)) return l; }
+        return el;
+      }
+      function clearFocus() {
+        var f = legendEl.querySelector('.gp-focus');
+        if (f) f.classList.remove('gp-focus');
+        focusIdx = -1;
+      }
+      function focusAt(list, i) {
+        if (!list.length) return;
+        i = (i % list.length + list.length) % list.length;
+        clearFocus();
+        focusIdx = i;
+        var el = list[i];
+        hiTarget(el).classList.add('gp-focus');
+        try { el.focus({ preventScroll: true }); } catch (e) {}
+        try { el.scrollIntoView({ block: 'nearest' }); } catch (e) {}
+      }
+      function move(delta) {
+        var list = items();
+        if (!list.length) return;
+        if (focusIdx < 0 || focusIdx >= list.length) focusAt(list, delta > 0 ? 0 : list.length - 1);
+        else focusAt(list, focusIdx + delta);
+      }
+      function currentEl() { var l = items(); return (focusIdx >= 0 && focusIdx < l.length) ? l[focusIdx] : null; }
+      function activate() {
+        var el = currentEl();
+        if (!el) { move(1); return; }
+        var type = (el.type || '').toLowerCase();
+        if (el.tagName === 'INPUT' && type === 'range') return;     // sliders use left/right
+        if (el.tagName === 'INPUT' && (type === 'text' || type === 'search')) { try { el.focus(); } catch (e) {} return; }
+        el.click();                                                 // button / checkbox / summary
+      }
+      function adjust(dir) {                                        // left/right on a slider
+        var el = currentEl();
+        if (!el || el.tagName !== 'INPUT' || (el.type || '').toLowerCase() !== 'range') return false;
+        var step = parseFloat(el.step) || 1, min = parseFloat(el.min), max = parseFloat(el.max);
+        var v = parseFloat(el.value) + dir * step;
+        if (!isNaN(min)) v = Math.max(min, v);
+        if (!isNaN(max)) v = Math.min(max, v);
+        el.value = v;
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+        return true;
+      }
+      function down(gp, i) { return !!(gp.buttons[i] && gp.buttons[i].pressed); }
+      function edge(gp, i) { var d = down(gp, i), was = btnPrev[i]; btnPrev[i] = d; return d && !was; }
+
+      function poll(now) {
+        var pads = navigator.getGamepads ? navigator.getGamepads() : [];
+        var gp = null;
+        for (var i = 0; i < pads.length; i++) { if (pads[i] && pads[i].connected) { gp = pads[i]; break; } }
+        if (gp) {
+          if (edge(gp, B_START)) { var willOpen = !menuOpen(); setMenu(willOpen); if (willOpen) move(1); }
+          if (menuOpen()) {
+            var ay = gp.axes[1] || 0, axx = gp.axes[0] || 0;
+            var dir = {
+              up: down(gp, B_DUP) || ay < -AX, down: down(gp, B_DDOWN) || ay > AX,
+              left: down(gp, B_DLEFT) || axx < -AX, right: down(gp, B_DRIGHT) || axx > AX
+            };
+            var fresh = (dir.up && !dirPrev.up) || (dir.down && !dirPrev.down) ||
+                        (dir.left && !dirPrev.left) || (dir.right && !dirPrev.right);
+            var held = dir.up || dir.down || dir.left || dir.right;
+            var fire = fresh ? (repeatAt = now + 380, true) : (held && now >= repeatAt ? (repeatAt = now + 110, true) : false);
+            dirPrev = dir;
+            if (fire) {
+              if (dir.up) move(-1);
+              else if (dir.down) move(1);
+              else if (dir.left) { if (!adjust(-1)) move(-1); }
+              else if (dir.right) { if (!adjust(1)) move(1); }
+            }
+            if (edge(gp, B_A)) activate();
+            // Close with B or Start (the top-level Start toggle). Not Back: the engine
+            // keeps Back = Esc (in-game pause), and closing with it would leak an Esc to
+            // the game as the pad un-suspends. Start is freed on web, so it's leak-free.
+            if (edge(gp, B_B)) setMenu(false);
+          } else {
+            dirPrev = { up: false, down: false, left: false, right: false };
+            btnPrev[B_A] = down(gp, B_A); btnPrev[B_B] = down(gp, B_B); btnPrev[B_BACK] = down(gp, B_BACK);
+          }
+        }
+        rafId = requestAnimationFrame(poll);
+      }
+      ctlCb.addEventListener('change', function () { if (!ctlCb.checked) clearFocus(); });
+
+      // Only poll while a controller is actually attached — no idle rAF wakeups for
+      // keyboard/touch players (battery). gamepadconnected fires on the first button
+      // press; also start if a pad is already present (e.g. after a reload).
+      var rafId = 0;
+      function startPoll() { if (!rafId) rafId = requestAnimationFrame(poll); }
+      function anyPad() { var ps = navigator.getGamepads ? navigator.getGamepads() : []; for (var i = 0; i < ps.length; i++) if (ps[i] && ps[i].connected) return true; return false; }
+      window.addEventListener('gamepadconnected', startPoll);
+      window.addEventListener('gamepaddisconnected', function () { if (!anyPad() && rafId) { cancelAnimationFrame(rafId); rafId = 0; } });
+      if (anyPad()) startPoll();
+    })();
   })();
   </script>
 
