@@ -721,12 +721,32 @@ body.has-saved-data .forget-data{display:block;}
     // and again just after the toast clears, and whenever the game is tapped.
     var gameCanvas = Module.canvas;
     function grabFocus() { try { gameCanvas && gameCanvas.focus({ preventScroll: true }); } catch (e) {} }
+    function isFullscreen() { return !!(document.fullscreenElement || document.webkitFullscreenElement); }
+    function isMobile() { try { return matchMedia('(pointer: coarse)').matches; } catch (e) { return false; } }
+
+    // On phones/tablets, fullscreen should play in landscape — the 4:3 game wastes
+    // a portrait screen. Lock the orientation on enter (no-op / silently rejected on
+    // desktop and on iOS, which doesn't support the API), release it on exit.
+    function lockLandscape() {
+      if (!isMobile()) return;
+      try {
+        var so = screen.orientation;
+        var p = so && so.lock && so.lock('landscape');
+        if (p && p.catch) p.catch(function () {});
+      } catch (e) {}
+    }
+    function unlockOrientation() { try { var so = screen.orientation; so && so.unlock && so.unlock(); } catch (e) {} }
+
+    function onFullscreenChange() {
+      if (isFullscreen()) {
+        lockLandscape();
+        grabFocus(); setTimeout(grabFocus, 1600);
+      } else {
+        unlockOrientation();
+      }
+    }
     ['fullscreenchange', 'webkitfullscreenchange'].forEach(function (ev) {
-      document.addEventListener(ev, function () {
-        if (document.fullscreenElement || document.webkitFullscreenElement) {
-          grabFocus(); setTimeout(grabFocus, 1600);
-        }
-      });
+      document.addEventListener(ev, onFullscreenChange);
     });
     if (gameCanvas) gameCanvas.addEventListener('pointerdown', grabFocus);
     var cb = document.getElementById('controls-toggle-cb');

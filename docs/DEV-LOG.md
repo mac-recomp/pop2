@@ -1593,3 +1593,11 @@ unset, so Emscripten used its built-in default): it returns `prefix + path` exac
 does — so wasm/data loading is byte-for-byte unchanged — but captures the `.data` archive's resolved
 URL and shows it under the progress bar as "Downloading from <host><path>" (the full link in the
 title tooltip). Picker (no-preload) builds load from a local file, so the line stays hidden there.
+
+### web: force landscape orientation in fullscreen on mobile. The game is 4:3, so on a phone held
+upright fullscreen wasted most of the screen. Refactored the fullscreen-change handler into a named
+`onFullscreenChange` and, on entering fullscreen, call `screen.orientation.lock('landscape')` —
+guarded by a coarse-pointer (`matchMedia('(pointer: coarse)')`) check, with the returned promise's
+rejection and any thrown exception swallowed — and `screen.orientation.unlock()` on exit. Desktop
+and iOS (which doesn't support the Screen Orientation lock API, and where iPhone has no element
+fullscreen anyway) silently no-op.
