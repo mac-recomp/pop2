@@ -1667,3 +1667,21 @@ local `_site` (an exact mirror of the CI deploy) in a headless browser: the norm
 letterboxes a 900×480 one, with the titlebar hidden and the rail absolutely positioned top-right;
 the poster and generator render and the generated snippet is well-formed. (`pop2.html` was relinked
 from the changed shell — objects cached, final link step only.)
+
+### web: load game data from a direct URL, so the engine can be self-hosted without shipping any
+game data. The picker build (POP2_WASM_NO_PRELOAD) already took a dropped pop2-data.tar.gz; this adds
+a URL path so a self-hoster points the engine at a prepared archive they host themselves. A
+`?data=<url>` query param auto-fetches and loads it (once, then cached in IndexedDB like a dropped
+file), and the drop-zone gains a "…paste a direct link" field next to the file picker. loadFromURL()
+streams the response with a progress read and hands the bytes to the existing loadBytes() path, so
+the gzip/tar handling and MEMFS layout are unchanged; a raw StuffIt/RAR/ZIP — which the browser
+can't unpack (that is the CI's server-side unar+prep step) — now gets a clear message pointing at
+tools/make-web-data.sh instead of a generic "not a tar" error. Cross-origin data needs CORS;
+same-origin needs nothing. It all lives in the shared shell and is inert in the preload build (which
+has data baked in and never reaches the picker path), so the hosted site is unaffected. Added
+SELF-HOSTING.md (static files, no COOP/COEP, the one-time data prep, and the ?data= / drop-zone /
+embed options). Verified on the engine-only picker build in a headless browser: ?data=<url> fetches
+the archive (HTTP 200) and boots into the running engine — the busy Asyncify loop then starves CDP,
+which is the signature of a live game and also why the running frame can't be screenshotted headless
+— the drop-zone shows the wired URL field, and a dead link falls back to the drop-zone with an error
+instead of hanging. Ships as an attached engine-only bundle on a GitHub release (no game data).

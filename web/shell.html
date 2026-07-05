@@ -395,6 +395,15 @@ html.embed .rail .txt{display:none;}                    /* icon-only buttons in 
 html.embed #touch-toggle{display:none;}                 /* touch controls auto-appear on touch devices */
 html.embed #volume-wrap{padding:0 8px;}
 html.embed #volume{display:none;}                       /* keep the mute icon, drop the wide slider */
+
+/* Data drop-zone: a URL field beside the drop area (self-host / picker build). */
+#stage[data-state="dropzone"] #drop-zone-state{flex-direction:column;gap:14px;}
+#drop-zone-state #drop-zone{height:auto;}
+.drop-url{display:flex;gap:8px;width:min(460px,90%);}
+.drop-url input{flex:1;min-width:0;background:rgba(0,0,0,.34);border:1px solid var(--gold-700);border-radius:6px;color:var(--parch-100);font-family:var(--font-mono);font-size:.76rem;padding:9px 11px;}
+.drop-url input:focus{outline:none;border-color:var(--gold-500);box-shadow:0 0 0 2px rgba(201,161,74,.25);}
+.drop-url button{flex:none;background:linear-gradient(180deg,rgba(240,216,148,.18),rgba(240,216,148,.05));border:1px solid var(--gold-500);color:var(--gold-300);font-family:var(--font-display);font-weight:600;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;border-radius:6px;padding:0 18px;cursor:pointer;transition:background .15s;}
+.drop-url button:hover{background:linear-gradient(180deg,rgba(240,216,148,.3),rgba(240,216,148,.12));}
 </style>
 </head>
 <body>
@@ -444,6 +453,11 @@ html.embed #volume{display:none;}                       /* keep the mute icon, d
           <input id="file-input" type="file" accept=".gz,.tgz,.tar" hidden />
           <p class="drop-formats">Accepts pop2-data.tar.gz (built with tools/make-web-data.sh)</p>
         </label>
+        <div class="drop-url">
+          <input id="data-url" type="url" inputmode="url" spellcheck="false" autocomplete="off"
+                 placeholder="…or paste a direct link to pop2-data.tar.gz" aria-label="Direct link to the game-data archive" />
+          <button id="load-url" type="button">Load</button>
+        </div>
       </div>
 
       <!-- on-screen touch controls (shown only on touch devices while playing) -->
@@ -634,7 +648,10 @@ html.embed #volume{display:none;}                       /* keep the mute icon, d
       if (hasData) { setState('start'); return; }   // preload build → sound gate
       // picker build: auto-load the player's remembered archive, else the drop-zone
       idbGetArchive().then(function (buf) {
-        if (buf) loadBytes('saved data', new Uint8Array(buf), true);
+        if (buf) return loadBytes('saved data', new Uint8Array(buf), true);
+        // self-host: ?data=<direct link to pop2-data.tar.gz> auto-loads it (once, then cached)
+        var dataUrl = new URLSearchParams(location.search).get('data');
+        if (dataUrl) loadFromURL(dataUrl, true);
         else setState('dropzone');
       });
     };
@@ -720,7 +737,15 @@ html.embed #volume{display:none;}                       /* keep the mute icon, d
         setProgress(0.6, 'Unpacking…');
         var files = untar(bytes);
         var bad = function (msg) { if (fromCache) idbDelArchive(); setState('dropzone'); if (!fromCache) alert(msg); };
-        if (!files.length) return bad('Not a tar archive — expected pop2-data.tar.gz');
+        if (!files.length) {
+          // Point users who paste a raw retail archive at the one-time prep step.
+          var s4 = String.fromCharCode(origBytes[0] || 0, origBytes[1] || 0, origBytes[2] || 0, origBytes[3] || 0);
+          var raw = s4 === 'Rar!' ? 'RAR' : (s4 === 'SIT!' || s4 === 'Stuf' || s4 === 'SITD') ? 'StuffIt'
+                  : (origBytes[0] === 0x50 && origBytes[1] === 0x4b) ? 'ZIP' : null;
+          return bad(raw
+            ? 'That is a raw ' + raw + ' archive. The browser can only load a prepared pop2-data.tar.gz — build it once from your retail copy with tools/make-web-data.sh, then use that file.'
+            : 'Not a game-data archive — expected pop2-data.tar.gz (built with tools/make-web-data.sh).');
+        }
         for (var i = 0; i < files.length; i++) {
           var dst = '/data/' + files[i].name;
           mkdirp(dst.slice(0, dst.lastIndexOf('/')));
@@ -743,6 +768,37 @@ html.embed #volume{display:none;}                       /* keep the mute icon, d
       ['dragleave', 'drop'].forEach(function (ev) { dz.addEventListener(ev, function (e) { e.preventDefault(); dz.classList.remove('is-dragover'); }); });
       dz.addEventListener('drop', function (e) { if (e.dataTransfer.files[0]) loadData(e.dataTransfer.files[0]); });
     }
+    // ---- load the data archive from a DIRECT URL (self-host: ?data=<url> or the field) ----
+    // The engine ships without game data; a self-hoster prepares pop2-data.tar.gz once with
+    // tools/make-web-data.sh, hosts it anywhere with a direct link (CORS), and points here.
+    async function loadFromURL(url) {
+      url = (url || '').trim(); if (!url) return;
+      try {
+        setState('loading'); setProgress(0.02, 'Fetching game data…'); showDataSource(url);
+        var resp = await fetch(url, { mode: 'cors', credentials: 'omit' });
+        if (!resp.ok) throw new Error('HTTP ' + resp.status + (resp.statusText ? ' ' + resp.statusText : ''));
+        var bytes;
+        if (resp.body && resp.body.getReader) {          // stream so we can show progress
+          var total = +resp.headers.get('content-length') || 0, got = 0, chunks = [];
+          var reader = resp.body.getReader();
+          for (;;) { var r = await reader.read(); if (r.done) break; chunks.push(r.value); got += r.value.length;
+            setProgress(total ? (got / total) * 0.9 : null, 'Fetching game data — ' + (got / 1048576).toFixed(1) + ' MB'); }
+          bytes = new Uint8Array(got); for (var i = 0, o = 0; i < chunks.length; i++) { bytes.set(chunks[i], o); o += chunks[i].length; }
+        } else {
+          bytes = new Uint8Array(await resp.arrayBuffer());
+        }
+        loadBytes(url.split('?')[0].split('/').pop() || 'game data', bytes, false);
+      } catch (e) {
+        console.error(e); setState('dropzone');
+        alert('Could not load data from that link:\n' + e.message +
+          '\n\nIt must be a direct link to a pop2-data.tar.gz (built with tools/make-web-data.sh), ' +
+          'and the host must allow cross-origin requests (CORS).');
+      }
+    }
+    var dataUrlInput = document.getElementById('data-url');
+    var dataUrlBtn = document.getElementById('load-url');
+    if (dataUrlBtn) dataUrlBtn.addEventListener('click', function () { loadFromURL(dataUrlInput && dataUrlInput.value); });
+    if (dataUrlInput) dataUrlInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); loadFromURL(dataUrlInput.value); } });
 
     // ---- chrome: fullscreen + Esc-closes-controls ----
     var fsBtn = document.getElementById('fullscreen-toggle');
