@@ -1685,3 +1685,14 @@ the archive (HTTP 200) and boots into the running engine — the busy Asyncify l
 which is the signature of a live game and also why the running frame can't be screenshotted headless
 — the drop-zone shows the wired URL field, and a dead link falls back to the drop-zone with an error
 instead of hanging. Ships as an attached engine-only bundle on a GitHub release (no game data).
+
+### web: teach the embed generator to build self-host snippets. embed-code.html gains a Base URL
+field — auto-filled from the page's own location, so on a self-hosted copy it reads that site's own
+domain — and an optional Game data URL field. When the data URL is set the generated `<iframe>`
+carries `?data=` (as `embed.html?data=…` for the lite poster, or `?embed=1&data=…` for the direct
+mode), so a self-hoster fills in two links and copies a ready snippet with nothing left to figure
+out. The lite poster (embed.html) now forwards its own `?data=` param through to `./?embed=1`, so the
+click-to-load path works self-hosted too. Static-file change (no engine rebuild); verified headless —
+the Base URL auto-fills, `?data=` is injected correctly in both lite and direct modes, and the poster
+carries the param across the Play navigation. The GitHub release bundle was refreshed with the
+updated files.

@@ -70,6 +70,12 @@
   .note b{color:var(--parch-200);}
   a{color:var(--gold-400);}
   footer{text-align:center;margin-top:34px;font-family:var(--mono);font-size:.72rem;color:var(--parch-400);}
+  .hosting{margin-top:16px;padding-top:16px;border-top:1px solid var(--border-faint);}
+  .hosting label{display:block;font-family:var(--mono);font-size:.72rem;letter-spacing:.03em;color:var(--parch-300);text-transform:uppercase;margin-bottom:14px;}
+  .hosting label:last-child{margin-bottom:0;}
+  .hosting .sub{display:block;color:var(--parch-400);text-transform:none;letter-spacing:0;font-size:.92em;margin-top:2px;}
+  .hosting input{display:block;width:100%;margin-top:7px;background:rgba(0,0,0,.32);border:1px solid var(--border-faint);border-radius:5px;color:var(--parch-100);font-family:var(--mono);font-size:.78rem;padding:8px 10px;}
+  .hosting input:focus{outline:none;border-color:var(--gold-500);}
 </style>
 </head>
 <body>
@@ -113,7 +119,18 @@
         </div>
       </div>
 
-      <div class="field" style="margin-top:8px;margin-bottom:0;">
+      <div class="hosting">
+        <label>Base URL
+          <span class="sub">auto-filled from this page — change it if you host the engine somewhere else</span>
+          <input id="base-url" type="url" spellcheck="false" autocomplete="off" />
+        </label>
+        <label>Game data URL
+          <span class="sub">self-hosting only: a direct link to your <b>pop2-data.tar.gz</b>. Leave empty for the hosted build (data already baked in).</span>
+          <input id="data-url" type="url" spellcheck="false" autocomplete="off" placeholder="https://your-host/pop2-data.tar.gz" />
+        </label>
+      </div>
+
+      <div class="field" style="margin-top:16px;margin-bottom:0;">
         <span class="lbl">Copy this into your page</span>
         <div class="code-wrap">
           <textarea id="code" readonly spellcheck="false" aria-label="Embed code"></textarea>
@@ -121,15 +138,15 @@
         </div>
       </div>
 
-      <p class="note"><b>How it works.</b> The <i>Lite</i> option embeds a tiny poster; the game is fetched only when a visitor clicks Play — so a page carrying the embed stays fast. <i>Direct</i> loads the game as soon as the frame appears. Sound starts on the visitor's first click (browser autoplay rules). No <code>SharedArrayBuffer</code> / cross-origin-isolation headers are required, so the frame works on any site.</p>
+      <p class="note"><b>How it works.</b> The <i>Lite</i> option embeds a tiny poster; the game is fetched only when a visitor clicks Play — so a page carrying the embed stays fast. <i>Direct</i> loads the game as soon as the frame appears. Sound starts on the visitor's first click (browser autoplay rules). No <code>SharedArrayBuffer</code> / cross-origin-isolation headers are required, so the frame works on any site. <b>Self-hosting?</b> Set your <i>Base URL</i> and a direct link to your <code>pop2-data.tar.gz</code> above, and the snippet points at your copy (see <code>SELF-HOSTING.md</code>).</p>
     </div>
 
     <footer>Play it full-page at <a href="./">mac-recomp.github.io/pop2</a></footer>
   </div>
 
 <script>
-  var BASE = 'https://mac-recomp.github.io/pop2/';  // absolute, so the snippet works on any site
-  var state = { mode: 'lite', size: '640x480', w: 640, h: 480 };
+  var DEFAULT_BASE = new URL('./', location.href).href;  // the folder this page is served from
+  var state = { mode: 'lite', size: '640x480', w: 640, h: 480, base: DEFAULT_BASE, data: '' };
 
   function selGroup(id, value) {
     var opts = document.querySelectorAll('#' + id + ' .opt');
@@ -141,7 +158,11 @@
   function clamp(n, lo, hi){ n = Math.round(+n||0); return n<lo?lo:(n>hi?hi:n); }
 
   function buildSnippet() {
-    var src = BASE + (state.mode === 'lite' ? 'embed.html' : '?embed=1');
+    var base = (state.base || '').trim() || DEFAULT_BASE; if (base.slice(-1) !== '/') base += '/';
+    var q = (state.data || '').trim() ? 'data=' + encodeURIComponent(state.data.trim()) : '';
+    var src = state.mode === 'lite'
+      ? base + 'embed.html' + (q ? '?' + q : '')
+      : base + '?embed=1' + (q ? '&' + q : '');
     var attrs = 'src="' + src + '"\n' +
                 '        allow="gamepad; fullscreen; autoplay"\n' +
                 '        loading="lazy"\n' +
@@ -195,6 +216,10 @@
       navigator.clipboard.writeText(ta.value).then(done, function(){ ta.select(); document.execCommand('copy'); done(); });
     } else { ta.select(); document.execCommand('copy'); done(); }
   });
+
+  var baseEl = document.getElementById('base-url'), dataEl = document.getElementById('data-url');
+  if (baseEl) { baseEl.value = DEFAULT_BASE; baseEl.addEventListener('input', function () { state.base = baseEl.value; refresh(); }); }
+  if (dataEl) dataEl.addEventListener('input', function () { state.data = dataEl.value; refresh(); });
 
   refresh();
 </script>

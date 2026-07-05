@@ -68,7 +68,9 @@
   var started = false;
   function launch() {
     if (started) return; started = true;
-    location.href = './?embed=1';
+    // Carry a self-host ?data=<url> through to the chromeless game.
+    var d = new URLSearchParams(location.search).get('data');
+    location.href = './?embed=1' + (d ? '&data=' + encodeURIComponent(d) : '');
   }
   document.body.addEventListener('click', launch);
   document.body.addEventListener('keydown', function (e) {
