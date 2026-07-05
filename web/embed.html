@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Prince of Persia 2 (Macintosh) — click to play</title>
+<meta name="robots" content="noindex" />
+<!--
+  Lightweight "click-to-load" poster for embedding the game in a third-party page.
+  Hosts drop THIS in an <iframe>; it shows only the title art + a Play button and
+  weighs almost nothing. The ~40 MB game is fetched only when the visitor clicks
+  Play, at which point the frame navigates to ./?embed=1 (the chromeless game).
+-->
+<style>
+  *{box-sizing:border-box;}
+  html,body{height:100%;margin:0;}
+  body{
+    display:flex;align-items:center;justify-content:center;
+    font-family:'Cinzel','Trajan Pro',Georgia,serif;color:#e7d8b6;
+    background:#0d0906;cursor:pointer;overflow:hidden;-webkit-tap-highlight-color:transparent;
+  }
+  /* Title art, dimmed, as a backdrop behind the Play prompt. */
+  .bg{position:absolute;inset:0;z-index:0;background:#0d0906 center/cover no-repeat;
+      background-image:url("og-image.png");filter:saturate(.85) brightness(.42);}
+  .scrim{position:absolute;inset:0;z-index:1;
+    background:radial-gradient(ellipse 90% 80% at 50% 45%, rgba(13,9,6,.35), rgba(8,5,3,.82));}
+  .panel{position:relative;z-index:2;text-align:center;padding:24px;display:flex;
+    flex-direction:column;align-items:center;gap:clamp(10px,2.6vh,20px);}
+  .kicker{font-weight:600;font-size:clamp(.5rem,2.6vw,.7rem);letter-spacing:.42em;
+    text-transform:uppercase;color:#c9a14a;margin:0;}
+  .title{font-weight:700;font-size:clamp(1.05rem,5.2vw,2rem);letter-spacing:.12em;line-height:1.05;
+    margin:0;text-transform:uppercase;color:transparent;
+    background:linear-gradient(180deg,#f6e6b6,#e0bd6b 46%,#9c7a30);-webkit-background-clip:text;background-clip:text;}
+  .play{display:inline-flex;align-items:center;gap:.6em;margin-top:.2em;padding:.62em 1.35em;
+    font-family:inherit;font-weight:600;font-size:clamp(.85rem,3.4vw,1.15rem);letter-spacing:.14em;
+    text-transform:uppercase;color:#1a120a;cursor:pointer;border:0;border-radius:8px;
+    background:linear-gradient(180deg,#f0d894,#c9a14a 60%,#9c7a30);
+    box-shadow:0 6px 22px rgba(0,0,0,.5),0 0 0 1px rgba(240,216,148,.5),0 0 22px -4px rgba(224,189,107,.6);
+    transition:transform .12s,box-shadow .12s;}
+  .play:hover{transform:translateY(-1px);box-shadow:0 8px 26px rgba(0,0,0,.55),0 0 0 1px #e0bd6b,0 0 30px -3px rgba(224,189,107,.8);}
+  .play:active{transform:translateY(1px) scale(.99);}
+  .play .tri{width:0;height:0;border-left:.72em solid currentColor;
+    border-top:.44em solid transparent;border-bottom:.44em solid transparent;}
+  .hint{margin:0;font-family:ui-monospace,'SF Mono',Menlo,Consolas,monospace;
+    font-size:clamp(.58rem,2.4vw,.72rem);letter-spacing:.06em;color:#9c8a66;}
+  :focus-visible{outline:none;}
+  .play:focus-visible{box-shadow:0 0 0 2px #0d0906,0 0 0 4px #f0d894;}
+  @media (prefers-reduced-motion:no-preference){
+    .play{animation:breathe 2.8s ease-in-out infinite;}
+    @keyframes breathe{0%,100%{filter:none;}50%{filter:brightness(1.06);}}
+  }
+</style>
+</head>
+<body role="button" tabindex="0" aria-label="Play Prince of Persia 2 — loads the game">
+  <div class="bg" aria-hidden="true"></div>
+  <div class="scrim" aria-hidden="true"></div>
+  <div class="panel">
+    <p class="kicker">Prince of Persia&nbsp;II · Macintosh</p>
+    <h1 class="title">The Shadow &amp; the Flame</h1>
+    <button class="play" type="button" aria-label="Play">
+      <span class="tri" aria-hidden="true"></span> Play
+    </button>
+    <p class="hint">Click to load — plays in your browser, nothing to install</p>
+  </div>
+<script>
+  // Navigate the frame to the chromeless game only when the visitor asks for it,
+  // so a page carrying this embed stays light until someone actually plays.
+  var started = false;
+  function launch() {
+    if (started) return; started = true;
+    location.href = './?embed=1';
+  }
+  document.body.addEventListener('click', launch);
+  document.body.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); launch(); }
+  });
+</script>
+</body>
+</html>

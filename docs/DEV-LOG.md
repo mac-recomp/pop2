@@ -1646,3 +1646,24 @@ lay out correctly once the device is actually in landscape). Kept the unrelated 
 move so the gamepad can still open the in-page menu in fullscreen. Auto-landscape (the original
 request) needs a different approach — the Screen Orientation lock API is unreliable here — so it's
 left to manual rotation for now.
+
+### web: add an embeddable mode so the game can play inside third-party pages. Three pieces. (1) A
+`?embed=1` (or `#embed`) mode in the shell strips the page down to just the game: a tiny `<head>`
+script adds an `html.embed` class before first paint (so the full-page chrome never flashes), and CSS
+scoped entirely under `html.embed` hides the titlebar and gilt frame, lets the 4:3 `.well` fill the
+host's iframe (centered and letterboxed when the frame isn't 4:3, mirroring the fullscreen fit), and
+floats the existing control rail — icon-only — in the top-right corner of the game. It is layout
+only: it reuses every existing control and its JS, and the normal full-page layout is untouched
+because none of the rules match without the class. (2) `web/embed.html` is a lightweight
+click-to-load poster (title art + a Play button) — the file hosts actually embed. It weighs almost
+nothing and navigates the frame to `./?embed=1` only when a visitor clicks Play, so the ~40 MB game
+is fetched on demand instead of on every page that carries the embed. (3) `web/embed-code.html` is a
+copy-paste snippet generator: Lite/Direct loading, size presets locked to 4:3 (plus manual W/H), a
+live preview, and a Copy button, emitting an `<iframe>` that points at the absolute Pages URL. The
+Pages workflow now copies both new files into the site artifact. No `SharedArrayBuffer` /
+cross-origin-isolation is involved, so the frame works embedded on any origin. Verified against a
+local `_site` (an exact mirror of the CI deploy) in a headless browser: the normal page is unchanged
+(titlebar visible, no `embed` class); `?embed=1` fills a 640×480 frame exactly and centers +
+letterboxes a 900×480 one, with the titlebar hidden and the rail absolutely positioned top-right;
+the poster and generator render and the generated snippet is well-formed. (`pop2.html` was relinked
+from the changed shell — objects cached, final link step only.)

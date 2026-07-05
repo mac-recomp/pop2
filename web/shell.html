@@ -29,6 +29,16 @@
 <meta name="twitter:description" content="A faithful WebAssembly recompilation of the 1994 Macintosh original. No install — play instantly." />
 <meta name="twitter:image" content="https://mac-recomp.github.io/pop2/og-image.png" />
 <meta name="twitter:image:alt" content="Prince of Persia 2 title screen — the gold game logo over a cloudy sky" />
+
+<!-- Embeddable mode: ?embed=1 (or #embed) strips the page down to just the game,
+     for use inside a third-party <iframe>. Set on <html> before first paint so the
+     full-page chrome (titlebar, frame) never flashes. -->
+<script>
+  try {
+    if (new URLSearchParams(location.search).has('embed') || location.hash === '#embed')
+      document.documentElement.classList.add('embed');
+  } catch (e) {}
+</script>
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -366,6 +376,25 @@ body.plat-mode #stage[data-state="playing"] .tc-plats{display:flex;}
 .forget-data:hover{color:#e9938f;border-color:rgba(220,90,80,.5);}
 .forget-data:disabled{cursor:default;opacity:.6;}
 body.has-saved-data .forget-data{display:block;}
+
+/* ==== Embeddable mode (?embed=1 / #embed): a chromeless canvas for an <iframe> ====
+   Strips the titlebar and gilt frame so the 4:3 game well fills the host's iframe;
+   the control rail floats, icon-only, in the top-right corner of the game. Reuses
+   all the existing controls/JS — this is layout only. */
+html.embed,html.embed body{height:100%;}
+html.embed body{margin:0;padding:0;gap:0;background:#000;display:block;}
+html.embed body::before{display:none;}                 /* drop the parchment grid overlay */
+html.embed .titlebar{display:none;}
+html.embed .player{display:block;height:100%;margin:0;gap:0;}
+html.embed .stage{max-width:none;width:100%;height:100%;padding:0;border-radius:0;box-shadow:none;background:#000;}
+html.embed .stage .corner{display:none;}
+html.embed .well{height:100%;width:auto;max-width:100%;aspect-ratio:4/3;margin:0 auto;border-radius:0;}
+html.embed .rail{position:absolute;top:8px;right:8px;z-index:20;flex-flow:row wrap;justify-content:flex-end;width:auto;max-width:calc(100% - 16px);gap:6px;opacity:.5;transition:opacity .2s;}
+html.embed .player:hover .rail,html.embed .rail:hover,html.embed .rail:focus-within{opacity:1;}
+html.embed .rail .txt{display:none;}                    /* icon-only buttons in the compact bar */
+html.embed #touch-toggle{display:none;}                 /* touch controls auto-appear on touch devices */
+html.embed #volume-wrap{padding:0 8px;}
+html.embed #volume{display:none;}                       /* keep the mute icon, drop the wide slider */
 </style>
 </head>
 <body>

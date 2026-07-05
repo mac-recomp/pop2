@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Embed Prince of Persia 2 on your site</title>
+<meta name="description" content="Copy-paste an <iframe> to put the browser-playable Macintosh Prince of Persia 2 on your own website or blog." />
+<link rel="canonical" href="https://mac-recomp.github.io/pop2/embed-code.html" />
+<link rel="icon" href="favicon.ico" sizes="any" />
+<link rel="icon" type="image/png" href="favicon.png" />
+<style>
+  *{box-sizing:border-box;}
+  :root{
+    --night-900:#0d0906;--night-700:#1a130c;--gold-700:#6e521f;--gold-500:#c9a14a;
+    --gold-400:#e0bd6b;--gold-300:#f0d894;--parch-100:#f3ead4;--parch-200:#e7d8b6;
+    --parch-300:#c8b48a;--parch-400:#9c8a66;--border-faint:#3a2a18;
+    --disp:'Cinzel','Trajan Pro',serif;--body:'Amiri',Georgia,serif;
+    --mono:ui-monospace,'SF Mono',Menlo,Consolas,monospace;
+  }
+  html,body{margin:0;}
+  body{font-family:var(--body);color:var(--parch-200);background:var(--night-900);
+    background-image:radial-gradient(ellipse 130% 90% at 50% -10%,#241608 0%,#160f08 42%,var(--night-900) 78%);
+    min-height:100vh;padding:clamp(16px,4vw,48px) clamp(14px,4vw,32px) 64px;line-height:1.55;}
+  .wrap{max-width:920px;margin:0 auto;}
+  header{text-align:center;margin-bottom:clamp(24px,4vw,40px);}
+  .kicker{font-family:var(--disp);font-weight:600;font-size:.66rem;letter-spacing:.42em;
+    text-transform:uppercase;color:var(--gold-500);margin:0 0 .5em;}
+  h1{font-family:var(--disp);font-weight:700;font-size:clamp(1.4rem,4vw,2.2rem);letter-spacing:.08em;
+    text-transform:uppercase;margin:0;color:transparent;
+    background:linear-gradient(180deg,#f6e6b6,var(--gold-400) 46%,#9c7a30);-webkit-background-clip:text;background-clip:text;}
+  .lede{color:var(--parch-300);max-width:56ch;margin:.9em auto 0;font-size:1.02rem;}
+  .panel{background:linear-gradient(180deg,rgba(240,216,148,.06),rgba(20,13,8,.5));
+    border:1px solid var(--gold-700);border-radius:10px;padding:clamp(16px,3vw,26px);margin-top:26px;
+    box-shadow:0 20px 60px rgba(0,0,0,.5);}
+  h2{font-family:var(--disp);font-weight:600;font-size:.78rem;letter-spacing:.2em;text-transform:uppercase;
+    color:var(--gold-300);margin:0 0 14px;}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:22px;}
+  @media (max-width:680px){.grid{grid-template-columns:1fr;}}
+  .field{margin-bottom:16px;}
+  .field > span.lbl{display:block;font-family:var(--mono);font-size:.72rem;letter-spacing:.05em;
+    color:var(--parch-400);text-transform:uppercase;margin-bottom:8px;}
+  .opts{display:flex;flex-wrap:wrap;gap:8px;}
+  .opt{cursor:pointer;font-family:var(--disp);font-size:.74rem;letter-spacing:.06em;color:var(--parch-200);
+    background:rgba(240,216,148,.06);border:1px solid var(--border-faint);border-radius:6px;padding:9px 14px;
+    transition:border-color .15s,background .15s,color .15s;user-select:none;}
+  .opt:hover{border-color:var(--gold-500);}
+  .opt.sel{color:var(--night-900);background:linear-gradient(180deg,var(--gold-400),var(--gold-500));border-color:var(--gold-500);font-weight:600;}
+  .opt small{display:block;font-family:var(--mono);font-size:.62rem;letter-spacing:0;opacity:.8;font-weight:400;margin-top:2px;}
+  .opt.sel small{opacity:.85;}
+  .dims{display:flex;align-items:center;gap:8px;margin-top:12px;font-family:var(--mono);font-size:.8rem;color:var(--parch-300);}
+  .dims input{width:80px;background:rgba(0,0,0,.32);border:1px solid var(--border-faint);border-radius:5px;
+    color:var(--parch-100);font-family:var(--mono);font-size:.82rem;padding:6px 8px;}
+  .dims input:focus{outline:none;border-color:var(--gold-500);}
+  .dims.off{opacity:.4;pointer-events:none;}
+  .preview-well{position:relative;width:100%;aspect-ratio:4/3;background:#000;border-radius:6px;overflow:hidden;
+    border:1px solid var(--gold-700);box-shadow:inset 0 0 0 1px #000;}
+  .preview-well iframe{position:absolute;inset:0;width:100%;height:100%;border:0;display:block;}
+  .code-wrap{position:relative;margin-top:6px;}
+  textarea#code{width:100%;height:132px;resize:vertical;background:#0b0b0e;color:#d7e0c8;
+    font-family:var(--mono);font-size:.8rem;line-height:1.5;border:1px solid var(--border-faint);border-radius:8px;
+    padding:14px 14px 14px;white-space:pre;overflow:auto;}
+  textarea#code:focus{outline:none;border-color:var(--gold-500);}
+  .copy{position:absolute;top:10px;right:10px;cursor:pointer;font-family:var(--disp);font-weight:600;
+    font-size:.7rem;letter-spacing:.12em;text-transform:uppercase;color:var(--night-900);
+    background:linear-gradient(180deg,var(--gold-300),var(--gold-500));border:0;border-radius:6px;padding:8px 14px;
+    box-shadow:0 2px 10px rgba(0,0,0,.4);transition:transform .1s;}
+  .copy:hover{transform:translateY(-1px);}
+  .copy.done{background:linear-gradient(180deg,#bfe3a0,#7fbf6a);}
+  .note{font-size:.84rem;color:var(--parch-400);margin-top:18px;}
+  .note b{color:var(--parch-200);}
+  a{color:var(--gold-400);}
+  footer{text-align:center;margin-top:34px;font-family:var(--mono);font-size:.72rem;color:var(--parch-400);}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <p class="kicker">Prince of Persia&nbsp;II · Macintosh · WebAssembly</p>
+      <h1>Put the game on your site</h1>
+      <p class="lede">A browser-playable recompilation of the Macintosh <i>Prince of Persia 2: The Shadow &amp; the Flame</i>. Pick a size, copy the snippet, paste it into any web page.</p>
+    </header>
+
+    <div class="panel">
+      <div class="grid">
+        <div>
+          <div class="field">
+            <span class="lbl">Loading</span>
+            <div class="opts" id="mode-opts">
+              <label class="opt sel"><input type="radio" name="mode" value="lite" checked hidden />Lite<small>load on click · recommended</small></label>
+              <label class="opt"><input type="radio" name="mode" value="direct" hidden />Direct<small>load immediately (~40&nbsp;MB)</small></label>
+            </div>
+          </div>
+          <div class="field">
+            <span class="lbl">Size</span>
+            <div class="opts" id="size-opts">
+              <label class="opt"><input type="radio" name="size" value="512x384" hidden />512 × 384</label>
+              <label class="opt sel"><input type="radio" name="size" value="640x480" checked hidden />640 × 480</label>
+              <label class="opt"><input type="radio" name="size" value="800x600" hidden />800 × 600</label>
+              <label class="opt"><input type="radio" name="size" value="responsive" hidden />Responsive<small>fills its container</small></label>
+            </div>
+            <div class="dims" id="dims">
+              <label>W <input id="w" type="number" min="256" max="2048" step="1" value="640" /></label>
+              <label>H <input id="h" type="number" min="192" max="1536" step="1" value="480" /></label>
+              <span style="opacity:.6">px · locked to 4:3</span>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div class="field">
+            <span class="lbl">Preview</span>
+            <div class="preview-well"><iframe id="preview" title="Preview" allow="gamepad; fullscreen; autoplay"></iframe></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="field" style="margin-top:8px;margin-bottom:0;">
+        <span class="lbl">Copy this into your page</span>
+        <div class="code-wrap">
+          <textarea id="code" readonly spellcheck="false" aria-label="Embed code"></textarea>
+          <button class="copy" id="copy" type="button">Copy</button>
+        </div>
+      </div>
+
+      <p class="note"><b>How it works.</b> The <i>Lite</i> option embeds a tiny poster; the game is fetched only when a visitor clicks Play — so a page carrying the embed stays fast. <i>Direct</i> loads the game as soon as the frame appears. Sound starts on the visitor's first click (browser autoplay rules). No <code>SharedArrayBuffer</code> / cross-origin-isolation headers are required, so the frame works on any site.</p>
+    </div>
+
+    <footer>Play it full-page at <a href="./">mac-recomp.github.io/pop2</a></footer>
+  </div>
+
+<script>
+  var BASE = 'https://mac-recomp.github.io/pop2/';  // absolute, so the snippet works on any site
+  var state = { mode: 'lite', size: '640x480', w: 640, h: 480 };
+
+  function selGroup(id, value) {
+    var opts = document.querySelectorAll('#' + id + ' .opt');
+    for (var i = 0; i < opts.length; i++) {
+      var input = opts[i].querySelector('input');
+      opts[i].classList.toggle('sel', input.value === value);
+    }
+  }
+  function clamp(n, lo, hi){ n = Math.round(+n||0); return n<lo?lo:(n>hi?hi:n); }
+
+  function buildSnippet() {
+    var src = BASE + (state.mode === 'lite' ? 'embed.html' : '?embed=1');
+    var attrs = 'src="' + src + '"\n' +
+                '        allow="gamepad; fullscreen; autoplay"\n' +
+                '        loading="lazy"\n' +
+                '        title="Prince of Persia 2 (Macintosh) — play in your browser"';
+    if (state.size === 'responsive') {
+      return '<iframe ' + attrs + '\n' +
+             '        style="width:100%;aspect-ratio:4/3;max-width:960px;border:0"></iframe>';
+    }
+    return '<iframe ' + attrs + '\n' +
+           '        width="' + state.w + '" height="' + state.h + '"\n' +
+           '        style="max-width:100%;aspect-ratio:4/3;border:0"></iframe>';
+  }
+
+  function refresh() {
+    // Preview uses a relative URL so it works here (same origin) too.
+    var psrc = (state.mode === 'lite' ? './embed.html' : './?embed=1');
+    var pv = document.getElementById('preview');
+    if (pv.getAttribute('data-src') !== psrc) { pv.src = psrc; pv.setAttribute('data-src', psrc); }
+    document.getElementById('code').value = buildSnippet();
+    document.getElementById('dims').classList.toggle('off', state.size === 'responsive');
+  }
+
+  document.getElementById('mode-opts').addEventListener('change', function (e) {
+    state.mode = e.target.value; selGroup('mode-opts', state.mode); refresh();
+  });
+  document.getElementById('size-opts').addEventListener('change', function (e) {
+    state.size = e.target.value; selGroup('size-opts', state.size);
+    if (state.size !== 'responsive') {
+      var wh = state.size.split('x');
+      state.w = +wh[0]; state.h = +wh[1];
+      document.getElementById('w').value = state.w;
+      document.getElementById('h').value = state.h;
+    }
+    refresh();
+  });
+  // Manual dimensions — keep 4:3 by deriving the partner from whichever changed.
+  document.getElementById('w').addEventListener('input', function (e) {
+    state.w = clamp(e.target.value, 256, 2048); state.h = Math.round(state.w * 3 / 4);
+    document.getElementById('h').value = state.h; selGroup('size-opts', state.size='custom'); refresh();
+  });
+  document.getElementById('h').addEventListener('input', function (e) {
+    state.h = clamp(e.target.value, 192, 1536); state.w = Math.round(state.h * 4 / 3);
+    document.getElementById('w').value = state.w; selGroup('size-opts', state.size='custom'); refresh();
+  });
+
+  document.getElementById('copy').addEventListener('click', function () {
+    var ta = document.getElementById('code');
+    var btn = document.getElementById('copy');
+    function done(){ btn.textContent = 'Copied'; btn.classList.add('done'); setTimeout(function(){ btn.textContent='Copy'; btn.classList.remove('done'); }, 1500); }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(ta.value).then(done, function(){ ta.select(); document.execCommand('copy'); done(); });
+    } else { ta.select(); document.execCommand('copy'); done(); }
+  });
+
+  refresh();
+</script>
+</body>
+</html>
